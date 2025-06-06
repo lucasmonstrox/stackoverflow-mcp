@@ -1,0 +1,14 @@
+{
+  "host": "localhost",
+  "port": 3000,
+  "log_level": "INFO",
+  "stackoverflow_api_key": "",
+  "stackoverflow_base_url": "https://api.stackexchange.com/2.3",
+  "max_requests_per_minute": 30,
+  "max_content_length": 50000,
+  "request_timeout": 30.0,
+  "cache_enabled": true,
+  "cache_ttl_seconds": 300,
+  "auto_switch_enabled": true,
+  "development_mode": false
+} 

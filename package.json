@@ -1,0 +1,82 @@
+{
+  "name": "stackoverflow-mcp",
+  "version": "0.1.0",
+  "description": "StackOverflow MCP server for querying programming Q&A - npx wrapper for Python package",
+  "main": "cli.js",
+  "bin": {
+    "stackoverflow-mcp": "./cli.js"
+  },
+  "files": [
+    "cli.js",
+    "README.md",
+    "LICENSE",
+    ".stackoverflow-mcp.example.json"
+  ],
+  "scripts": {
+    "start": "node cli.js",
+    "test": "node cli.js --help && python -m pytest tests/ -v",
+    "test:npm": "npm pack --dry-run",
+    "test:install": "npm install -g . && stackoverflow-mcp --version",
+    "build": "echo 'No build step required for wrapper package'",
+    "prepublishOnly": "npm run test:npm && npm run test",
+    "postinstall": "echo 'StackOverflow MCP server installed. Run with: npx stackoverflow-mcp'",
+    "version": "echo 'Version updated to' $npm_package_version"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/stackoverflow-mcp.git"
+  },
+  "keywords": [
+    "stackoverflow",
+    "mcp", 
+    "model-context-protocol",
+    "api",
+    "programming",
+    "qa",
+    "search",
+    "cli",
+    "server",
+    "python",
+    "wrapper",
+    "npx",
+    "ai",
+    "assistant",
+    "context"
+  ],
+  "author": {
+    "name": "Your Name",
+    "email": "your.email@example.com",
+    "url": "https://github.com/yourusername"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yourusername/stackoverflow-mcp/issues"
+  },
+  "homepage": "https://github.com/yourusername/stackoverflow-mcp#readme",
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "dependencies": {},
+  "peerDependencies": {
+    "python": ">=3.12"
+  },
+  "devDependencies": {},
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/yourusername"
+  }
+} 
