@@ -243,7 +243,7 @@ class StackOverflowMCPCLI {
             console.log('  3. Check network connectivity for package installation');
             console.log('  4. Try running with --verbose for more details');
             console.log('');
-            console.log('For more help, visit: https://github.com/yourusername/stackoverflow-mcp');
+            console.log('For more help, visit: https://github.com/NoTalkTech/stackoverflow-mcp');
             process.exit(1);
         }
     }
