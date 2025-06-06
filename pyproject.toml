@@ -47,11 +47,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/stackoverflow-mcp"
-Documentation = "https://github.com/yourusername/stackoverflow-mcp#readme"
-Repository = "https://github.com/yourusername/stackoverflow-mcp.git"
-"Bug Tracker" = "https://github.com/yourusername/stackoverflow-mcp/issues"
-Changelog = "https://github.com/yourusername/stackoverflow-mcp/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/NoTalkTech/stackoverflow-mcp"
+Documentation = "https://github.com/NoTalkTech/stackoverflow-mcp#readme"
+Repository = "https://github.com/NoTalkTech/stackoverflow-mcp.git"
+"Bug Tracker" = "https://github.com/NoTalkTech/stackoverflow-mcp/issues"
+Changelog = "https://github.com/NoTalkTech/stackoverflow-mcp/blob/main/CHANGELOG.md"
 
 [project.scripts]
 stackoverflow-mcp = "stackoverflow_mcp.main:main"
