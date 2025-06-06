@@ -24,7 +24,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/stackoverflow-mcp.git"
+    "url": "git+https://github.com/NoTalkTech/stackoverflow-mcp.git"
   },
   "keywords": [
     "stackoverflow",
@@ -44,15 +44,15 @@
     "context"
   ],
   "author": {
-    "name": "Your Name",
-    "email": "your.email@example.com",
-    "url": "https://github.com/yourusername"
+    "name": "biyu.huang",
+    "email": "h417652303@gmail.com",
+    "url": "https://github.com/NoTalkTech"
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/yourusername/stackoverflow-mcp/issues"
+    "url": "https://github.com/NoTalkTech/stackoverflow-mcp/issues"
   },
-  "homepage": "https://github.com/yourusername/stackoverflow-mcp#readme",
+  "homepage": "https://github.com/NoTalkTech/stackoverflow-mcp#readme",
   "engines": {
     "node": ">=14.0.0",
     "npm": ">=6.0.0"
@@ -77,6 +77,6 @@
   },
   "funding": {
     "type": "github",
-    "url": "https://github.com/sponsors/yourusername"
+    "url": "https://github.com/sponsors/NoTalkTech"
   }
 } 

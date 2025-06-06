@@ -51,7 +51,7 @@ stackoverflow-mcp --help
 
 ### Option 3: Local Development
 ```bash
-git clone https://github.com/yourusername/stackoverflow-mcp.git
+git clone https://github.com/NoTalkTech/stackoverflow-mcp.git
 cd stackoverflow-mcp
 npm install
 node cli.js --help
@@ -193,7 +193,7 @@ python -m pytest tests/ -v
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/stackoverflow-mcp.git
+git clone https://github.com/NoTalkTech/stackoverflow-mcp.git
 cd stackoverflow-mcp
 
 # Install Node.js dependencies
@@ -258,9 +258,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/stackoverflow-mcp/issues)
-- **Documentation**: [GitHub Wiki](https://github.com/yourusername/stackoverflow-mcp/wiki)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/stackoverflow-mcp/discussions)
+- **Issues**: [GitHub Issues](https://github.com/NoTalkTech/stackoverflow-mcp/issues)
+- **Documentation**: [GitHub Wiki](https://github.com/NoTalkTech/stackoverflow-mcp/wiki)
+- **Discussions**: [GitHub Discussions](https://github.com/NoTalkTech/stackoverflow-mcp/discussions)
 
 ## 🙏 Acknowledgments
 
