@@ -306,7 +306,7 @@ echo "✓ Package quality checks completed"
 
 # 询问版本类型
 echo ""
-initial_version=$(npm version --json | jq -r '.["stackoverflow-mcp"]')
+initial_version=$(npm version --json | jq -r '.["@notalk/stackoverflow-mcp"]')
 echo "📊 Current version: $initial_version"
 # Task 5: 增强版本管理
 echo "Select version bump type:"
@@ -415,7 +415,7 @@ case $version_choice in
 esac
 
 if [[ $dry_run != true ]]; then
-    new_version=$(npm version --json | jq -r '.["stackoverflow-mcp"]')
+    new_version=$(npm version --json | jq -r '.["@notalk/stackoverflow-mcp"]')
 fi
 if [[ $rollback_needed == true ]]; then
     current_tag="v$new_version"
@@ -426,7 +426,7 @@ echo "✓ Version: $new_version"
 echo ""
 echo "🚀 Ready to publish!"
 echo "================================="
-echo "Package: stackoverflow-mcp@$new_version"
+echo "Package: @notalk/stackoverflow-mcp@$new_version"
 echo "User: $current_user"
 echo "Registry: $(npm config get registry)"
 echo "NPM Tag: $npm_tag"
@@ -438,7 +438,7 @@ echo "================================="
 
 # 记录到日志文件
 log_file="publish.log"
-echo "$(date): Attempting to publish stackoverflow-mcp@$new_version (tag: $npm_tag) by $current_user" >> "$log_file"
+echo "$(date): Attempting to publish @notalk/stackoverflow-mcp@$new_version (tag: $npm_tag) by $current_user" >> "$log_file"
 
 if [[ $force_publish != true ]]; then
     read -p "Proceed with publishing? (y/N): " -n 1 -r
@@ -478,13 +478,13 @@ if [[ $publish_success -eq 0 ]] || [[ $dry_run == true ]]; then
     if [[ $dry_run == true ]]; then
         echo "🔍 DRY RUN: Publishing would have succeeded"
     else
-        echo "✅ Successfully published stackoverflow-mcp@$new_version"
-        echo "$(date): Successfully published stackoverflow-mcp@$new_version (tag: $npm_tag)" >> "$log_file"
+        echo "✅ Successfully published @notalk/stackoverflow-mcp@$new_version"
+        echo "$(date): Successfully published @notalk/stackoverflow-mcp@$new_version (tag: $npm_tag)" >> "$log_file"
         rollback_needed=false  # 发布成功后禁用回滚
     fi
 else
     echo "❌ Publishing failed!"
-    echo "$(date): Publishing failed for stackoverflow-mcp@$new_version" >> "$log_file"
+    echo "$(date): Publishing failed for @notalk/stackoverflow-mcp@$new_version" >> "$log_file"
     exit 1
 fi
 
@@ -500,9 +500,9 @@ echo ""
 echo "🔍 Verifying publication..."
 sleep 5  # Wait for NPM to update
 
-if npm view stackoverflow-mcp@$new_version >/dev/null 2>&1; then
+if npm view @notalk/stackoverflow-mcp@$new_version >/dev/null 2>&1; then
     echo "✅ Package verified on NPM registry"
-    echo "🌐 View at: https://www.npmjs.com/package/stackoverflow-mcp"
+    echo "🌐 View at: https://www.npmjs.com/package/@notalk/stackoverflow-mcp"
 else
     echo "⚠️  Warning: Package not yet visible on registry (may take a few minutes)"
 fi
@@ -513,7 +513,7 @@ echo "🧪 Testing npx installation..."
 temp_dir=$(mktemp -d)
 cd $temp_dir
 
-if timeout 30 npx stackoverflow-mcp@$new_version --help >/dev/null 2>&1; then
+if timeout 30 npx @notalk/stackoverflow-mcp@$new_version --help >/dev/null 2>&1; then
     echo "✅ npx test successful"
 else
     echo "⚠️  npx test failed or timed out (may take time to propagate)"
@@ -531,5 +531,5 @@ echo "2. Create GitHub Release: https://github.com/NoTalkTech/stackoverflow-mcp/
 echo "3. Update Cursor MCP configurations to use the published package"
 echo ""
 echo "✨ Users can now install with:"
-echo "   npx stackoverflow-mcp"
-echo "   npm install -g stackoverflow-mcp" 
+echo "   npx @notalk/stackoverflow-mcp"
+echo "   npm install -g @notalk/stackoverflow-mcp" 
