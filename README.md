@@ -3,7 +3,7 @@
 [![npm version](https://badge.fury.io/js/stackoverflow-mcp.svg)](https://badge.fury.io/js/stackoverflow-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Model Context Protocol (MCP) server that provides seamless access to StackOverflow's programming Q&A database. This package serves as an NPX-compatible wrapper for the Python-based StackOverflow MCP server.
+A Model Context Protocol (MCP) server that provides seamless access to StackOverflow's programming Q&A database using the FastMCP framework. This package serves as an NPX-compatible wrapper for the Python-based StackOverflow MCP server.
 
 ## Quick Start
 
@@ -23,13 +23,16 @@ stackoverflow-mcp
 ```bash
 # If you have the Python package installed
 python -m stackoverflow_mcp
+
+# Using uv (recommended for Python development)
+uv run python -m stackoverflow_mcp
 ```
 
 ## 📋 Prerequisites
 
 - **Node.js** 14.0.0 or higher
 - **Python** 3.12 or higher
-- **pip** (Python package manager)
+- **uv** (recommended) or **pip** (Python package manager)
 
 The NPX wrapper will automatically:
 - Detect your Python installation
@@ -67,7 +70,7 @@ node cli.js --help
 - **🚀 Auto-deployment**: NPX-compatible with automatic Python environment setup
 - **📁 Smart Configuration**: Auto-discovery of config files and working directories
 - **🔧 Development Mode**: Enhanced logging and debugging features
-- **⚡ FastMcp Implementation**: Simplified, elegant server using FastMcp framework
+- **⚡ FastMCP Implementation**: Simplified, elegant server using FastMCP framework (only implementation)
 
 ## Usage
 
@@ -87,23 +90,23 @@ npx stackoverflow-mcp --dev --log-level DEBUG
 npx stackoverflow-mcp --config-file ./my-config.json
 ```
 
-### FastMcp Version (Recommended)
+### Python Development with uv
 
-The FastMcp implementation provides a cleaner, more maintainable codebase:
+For Python development, we recommend using uv for faster dependency management:
 
 ```bash
-# Start the FastMcp server
-stackoverflow-mcp-fastmcp
+# Install dependencies with uv
+uv sync
 
-# With custom configuration
-stackoverflow-mcp-fastmcp --config-file ./my-config.json --log-level DEBUG
+# Run the server with uv
+uv run python -m stackoverflow_mcp
 
-# Python module directly
-python -m stackoverflow_mcp.fastmcp_main
+# Development mode with uv
+uv run python -m stackoverflow_mcp --log-level DEBUG
 ```
 
-**FastMcp Benefits:**
-- 🔥 **67% Less Code**: Simplified from 978 to ~300 lines
+**FastMCP Benefits:**
+- 🔥 **Simplified Code**: Clean, maintainable implementation
 - 🎯 **Decorator-based**: Clean tool registration with `@mcp.tool()`
 - 🚀 **Auto-schema**: Type hints automatically generate schemas  
 - 🛡️ **Built-in Error Handling**: Consistent error responses
