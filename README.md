@@ -1,6 +1,6 @@
 # StackOverflow MCP Server
 
-[![npm version](https://badge.fury.io/js/stackoverflow-mcp.svg)](https://badge.fury.io/js/stackoverflow-mcp)
+[![npm version](https://badge.fury.io/js/@notalk%2Fstackoverflow-mcp.svg)](https://badge.fury.io/js/@notalk%2Fstackoverflow-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Model Context Protocol (MCP) server that provides seamless access to StackOverflow's programming Q&A database using the FastMCP framework. This package serves as an NPX-compatible wrapper for the Python-based StackOverflow MCP server.
@@ -11,10 +11,10 @@ A Model Context Protocol (MCP) server that provides seamless access to StackOver
 
 ```bash
 # Run directly with npx (no installation required)
-npx stackoverflow-mcp
+npx @notalk/stackoverflow-mcp
 
 # Or install globally
-npm install -g stackoverflow-mcp
+npm install -g @notalk/stackoverflow-mcp
 stackoverflow-mcp
 ```
 
@@ -43,12 +43,12 @@ The NPX wrapper will automatically:
 
 ### Option 1: NPX (No Installation)
 ```bash
-npx stackoverflow-mcp --help
+npx @notalk/stackoverflow-mcp --help
 ```
 
 ### Option 2: Global NPM Installation
 ```bash
-npm install -g stackoverflow-mcp
+npm install -g @notalk/stackoverflow-mcp
 stackoverflow-mcp --help
 ```
 
@@ -78,16 +78,16 @@ node cli.js --help
 
 ```bash
 # Start the MCP server with default settings
-npx stackoverflow-mcp
+npx @notalk/stackoverflow-mcp
 
 # Start on a specific port
-npx stackoverflow-mcp --port 8080
+npx @notalk/stackoverflow-mcp --port 8080
 
 # Development mode with debug logging
-npx stackoverflow-mcp --dev --log-level DEBUG
+npx @notalk/stackoverflow-mcp --dev --log-level DEBUG
 
 # Use custom configuration file
-npx stackoverflow-mcp --config-file ./my-config.json
+npx @notalk/stackoverflow-mcp --config-file ./my-config.json
 ```
 
 ### Python Development with uv
@@ -212,7 +212,7 @@ npm start -- --dev
 ### Project Structure
 
 ```
-stackoverflow-mcp/
+@notalk/stackoverflow-mcp/
 ├── cli.js                          # NPX wrapper (Node.js)
 ├── package.json                    # NPM package configuration
 ├── src/stackoverflow_mcp/          # Python MCP server
