@@ -67,9 +67,6 @@
     "arm64"
   ],
   "dependencies": {},
-  "peerDependencies": {
-    "python": ">=3.12"
-  },
   "devDependencies": {},
   "publishConfig": {
     "access": "public",

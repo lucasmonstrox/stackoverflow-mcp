@@ -270,7 +270,12 @@ def main(
             work_dir = manager.detect_working_directory()
         
         # Change to working directory
-        os.chdir(work_dir)
+        try:
+            os.chdir(work_dir)
+            logger.debug(f"Changed working directory to: {work_dir}")
+        except Exception as e:
+            logger.warning(f"Failed to change to working directory {work_dir}: {e}")
+            work_dir = Path.cwd()  # Use current directory as fallback
         
         # 2. Discover configuration file
         if not config_file:

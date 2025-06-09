@@ -202,7 +202,15 @@ class StackOverflowMCPCLI {
 
             // 2. Detect working directory
             const workingDir = await this.detectWorkingDirectory();
-            process.chdir(workingDir);
+            this.log(`Detected working directory: ${workingDir}`);
+            
+            try {
+                process.chdir(workingDir);
+                this.log(`Changed to working directory: ${process.cwd()}`);
+            } catch (error) {
+                this.error(`Failed to change to working directory ${workingDir}: ${error.message}`);
+                // Continue with current directory
+            }
 
             // 3. Check if package is installed
             const isInstalled = await this.checkPackageInstalled(pythonCmd);
@@ -226,6 +234,11 @@ class StackOverflowMCPCLI {
             // 4. Filter and prepare CLI arguments
             const cliArgs = process.argv.slice(2);
             const filteredArgs = this.filterCliArgs(cliArgs);
+            
+            // Add working directory argument if not already specified
+            if (!filteredArgs.includes('--working-dir') && !filteredArgs.includes('--working-directory')) {
+                filteredArgs.push('--working-dir', workingDir);
+            }
 
             // 5. Run the Python CLI
             console.log('🚀 Starting StackOverflow MCP Server...');

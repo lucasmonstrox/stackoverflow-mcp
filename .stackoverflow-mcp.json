@@ -1,0 +1,8 @@
+{
+  "host": "localhost",
+  "port": 3000,
+  "log_level": "DEBUG",
+  "stackoverflow_api_key": "",
+  "max_requests_per_minute": 30,
+  "max_content_length": 50000
+} 

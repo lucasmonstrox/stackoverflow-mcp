@@ -135,9 +135,21 @@ def main(
     else:
         work_dir = detect_working_directory()
     
+    # Change to working directory to ensure proper config file discovery
+    import os
+    original_cwd = Path.cwd()
+    try:
+        os.chdir(work_dir)
+        logger.debug(f"Changed working directory to: {work_dir}")
+    except Exception as e:
+        logger.warning(f"Failed to change to working directory {work_dir}: {e}")
+        work_dir = original_cwd
+    
     # Discover config file if not specified
     if config_file:
         config_path = Path(config_file)
+        if not config_path.is_absolute():
+            config_path = work_dir / config_path
     else:
         config_path = discover_config_file(work_dir)
     
@@ -174,8 +186,20 @@ def main(
         logger.info(f"API Key Configured: {'Yes' if config.stackoverflow_api_key else 'No'}")
         logger.info("=" * 60)
         
-        # Run the server
-        asyncio.run(run_server(config))
+        # Run the server with proper asyncio handling
+        try:
+            asyncio.run(run_server(config))
+        except RuntimeError as e:
+            if "already running" in str(e).lower():
+                logger.warning("AsyncIO loop already running, creating new event loop")
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(run_server(config))
+                finally:
+                    loop.close()
+            else:
+                raise
         
     except KeyboardInterrupt:
         logger.info("Server interrupted by user")

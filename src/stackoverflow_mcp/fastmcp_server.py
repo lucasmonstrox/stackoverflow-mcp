@@ -305,10 +305,35 @@ async def run_server(config: ServerConfig):
         logger.info("Starting StackOverflow MCP Server with FastMcp")
         logger.info(f"Host: {config.host}, Port: {config.port}")
         
-        # Start FastMcp server
-        await mcp.run(
-            transport="stdio"  # Use stdio transport for MCP
-        )
+        # Start FastMcp server with proper asyncio handling
+        try:
+            await mcp.run(transport="stdio")
+        except RuntimeError as e:
+            if "already running" in str(e).lower():
+                logger.warning("AsyncIO loop already running, using alternative startup method")
+                # Alternative: create a new event loop in a thread
+                import threading
+                import asyncio
+                
+                def run_in_thread():
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+                    try:
+                        new_loop.run_until_complete(mcp.run(transport="stdio"))
+                    finally:
+                        new_loop.close()
+                
+                thread = threading.Thread(target=run_in_thread, daemon=True)
+                thread.start()
+                
+                # Keep main thread alive
+                try:
+                    while thread.is_alive():
+                        await asyncio.sleep(1)
+                except KeyboardInterrupt:
+                    logger.info("Received interrupt signal")
+            else:
+                raise
         
     except KeyboardInterrupt:
         logger.info("Server interrupted by user")

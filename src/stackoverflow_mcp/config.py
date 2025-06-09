@@ -3,7 +3,9 @@ Configuration management for StackOverflow MCP server.
 """
 
 import os
+import json
 from typing import Optional
+from pathlib import Path
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -30,6 +32,24 @@ class ServerConfig(BaseModel):
     # Logging settings
     log_level: str = "INFO"
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    
+    @classmethod
+    def from_file(cls, config_path: Path) -> "ServerConfig":
+        """Load configuration from a JSON config file."""
+        if not config_path.exists():
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+        
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config_data = json.load(f)
+            
+            # Create config with loaded data, allowing extra fields to be ignored
+            return cls(**{k: v for k, v in config_data.items() if k in cls.__fields__})
+            
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in config file {config_path}: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Failed to load config from {config_path}: {e}")
     
     @classmethod
     def load_from_env(cls) -> "ServerConfig":
