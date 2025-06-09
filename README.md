@@ -13,6 +13,9 @@ A Model Context Protocol (MCP) server that provides seamless access to StackOver
 # Run directly with npx (no installation required)
 npx @notalk/stackoverflow-mcp
 
+# Skip installation prompts (useful for automation)
+npx -y @notalk/stackoverflow-mcp
+
 # Or install globally
 npm install -g @notalk/stackoverflow-mcp
 stackoverflow-mcp
@@ -79,6 +82,9 @@ node cli.js --help
 ```bash
 # Start the MCP server with default settings
 npx @notalk/stackoverflow-mcp
+
+# Auto-confirm installation (useful for scripts/CI)
+npx -y @notalk/stackoverflow-mcp
 
 # Start on a specific port
 npx @notalk/stackoverflow-mcp --port 8080
