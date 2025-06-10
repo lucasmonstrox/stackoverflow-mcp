@@ -18,16 +18,36 @@ class StackOverflowMCPCLI {
         this.pythonCommands = ['python3', 'python'];
         this.packageName = 'stackoverflow-fastmcp';
         this.verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
+        // Detect MCP mode - should be silent for stdio communication
+        this.isMCPMode = this.detectMCPMode();
+    }
+
+    detectMCPMode() {
+        // MCP mode detection: no --help, has --port, or called via MCP
+        const args = process.argv.slice(2);
+        const hasPort = args.includes('--port');
+        const hasHelp = args.includes('--help') || args.includes('-h');
+        const isStdio = !hasPort && !hasHelp; // Default MCP uses stdio
+        
+        return (hasPort || isStdio) && !hasHelp;
     }
 
     log(message) {
-        if (this.verbose) {
-            console.log(`[stackoverflow-mcp] ${message}`);
+        if (this.verbose && !this.isMCPMode) {
+            console.log(`[stackoverflow-fastmcp] ${message}`);
         }
     }
 
     error(message) {
-        console.error(`[stackoverflow-mcp] ERROR: ${message}`);
+        if (!this.isMCPMode) {
+            console.error(`[stackoverflow-fastmcp] ERROR: ${message}`);
+        }
+    }
+
+    info(message) {
+        if (!this.isMCPMode) {
+            console.log(message);
+        }
     }
 
     async findPython() {
@@ -103,8 +123,13 @@ class StackOverflowMCPCLI {
     async checkUvAvailable() {
         try {
             const result = await this.runCommand('uv', ['--version'], { stdio: 'pipe' });
-            return result.code === 0;
+            if (result.code === 0) {
+                this.log(`Found uv: ${result.stdout.trim()}`);
+                return true;
+            }
+            return false;
         } catch (error) {
+            this.log('uv not found in PATH');
             return false;
         }
     }
@@ -112,14 +137,15 @@ class StackOverflowMCPCLI {
     async installPackage(pythonCmd) {
         this.log(`Installing ${this.packageName} Python package...`);
         
-        // Try uv first if available (faster and more reliable)
         const uvAvailable = await this.checkUvAvailable();
+        
+        // Try uv first if available (faster and more reliable, bypasses externally-managed-environment)
         if (uvAvailable) {
             try {
                 this.log('Using uv for package installation...');
                 const result = await this.runCommand('uv', ['pip', 'install', this.packageName]);
                 if (result.code === 0) {
-                    console.log(`✅ Successfully installed ${this.packageName} (via uv)`);
+                    this.info(`✅ Successfully installed ${this.packageName} (via uv)`);
                     return true;
                 }
             } catch (error) {
@@ -128,26 +154,56 @@ class StackOverflowMCPCLI {
         }
         
         // Try pip install
+        let pipResult;
         try {
-            const result = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', this.packageName]);
-            if (result.code === 0) {
-                console.log(`✅ Successfully installed ${this.packageName}`);
+            pipResult = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', this.packageName], { stdio: 'pipe' });
+            if (pipResult.code === 0) {
+                this.info(`✅ Successfully installed ${this.packageName}`);
                 return true;
             }
         } catch (error) {
             this.log(`pip install failed: ${error.message}`);
         }
 
-        // Try with user flag if global install failed
-        try {
-            this.log('Trying user installation...');
-            const result = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', '--user', this.packageName]);
-            if (result.code === 0) {
-                console.log(`✅ Successfully installed ${this.packageName} (user installation)`);
-                return true;
+        // Check for externally-managed-environment error
+        const isExternallyManaged = pipResult && (
+            pipResult.stderr.includes('externally-managed-environment') ||
+            pipResult.stderr.includes('EXTERNALLY-MANAGED')
+        );
+
+        if (isExternallyManaged) {
+            this.info('⚠️  Detected externally-managed Python environment');
+            
+            if (uvAvailable) {
+                this.info('🔧 Retrying with uv (which handles externally-managed environments)...');
+                try {
+                    const result = await this.runCommand('uv', ['pip', 'install', this.packageName]);
+                    if (result.code === 0) {
+                        this.info(`✅ Successfully installed ${this.packageName} (via uv)`);
+                        return true;
+                    }
+                } catch (error) {
+                    this.log(`uv retry failed: ${error.message}`);
+                }
+            } else {
+                this.info('❌ uv is not available to handle externally-managed environment');
+                this.info('📥 Please install uv: curl -LsSf https://astral.sh/uv/install.sh | sh');
+                return false;
             }
-        } catch (error) {
-            this.log(`User pip install failed: ${error.message}`);
+        }
+
+        // Try with user flag if not externally managed
+        if (!isExternallyManaged) {
+            try {
+                this.log('Trying user installation...');
+                const result = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', '--user', this.packageName]);
+                if (result.code === 0) {
+                    this.info(`✅ Successfully installed ${this.packageName} (user installation)`);
+                    return true;
+                }
+            } catch (error) {
+                this.log(`User pip install failed: ${error.message}`);
+            }
         }
 
         // If we're in a development environment, try local installation
@@ -158,16 +214,18 @@ class StackOverflowMCPCLI {
                     // Try uv development install first
                     const uvResult = await this.runCommand('uv', ['pip', 'install', '-e', '.']);
                     if (uvResult.code === 0) {
-                        console.log(`✅ Successfully installed ${this.packageName} (development mode via uv)`);
+                        this.info(`✅ Successfully installed ${this.packageName} (development mode via uv)`);
                         return true;
                     }
                 }
                 
-                // Fallback to pip
-                const result = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', '-e', '.']);
-                if (result.code === 0) {
-                    console.log(`✅ Successfully installed ${this.packageName} (development mode)`);
-                    return true;
+                // Fallback to pip (only if not externally managed)
+                if (!isExternallyManaged) {
+                    const result = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', '-e', '.']);
+                    if (result.code === 0) {
+                        this.info(`✅ Successfully installed ${this.packageName} (development mode)`);
+                        return true;
+                    }
                 }
             } catch (error) {
                 this.log(`Local install failed: ${error.message}`);
@@ -230,8 +288,8 @@ class StackOverflowMCPCLI {
 
     async main() {
         try {
-            console.log('🔧 StackOverflow MCP Server (npx wrapper)');
-            console.log('');
+            this.info('🔧 StackOverflow MCP Server (npx wrapper)');
+            this.info('');
 
             // Check if in test mode
             if (process.env.TEST_MODE === '1') {
@@ -278,17 +336,22 @@ class StackOverflowMCPCLI {
             const isInstalled = await this.checkPackageInstalled(pythonCmd);
             
             if (!isInstalled) {
-                console.log(`📦 ${this.packageName} not found, installing...`);
+                this.info(`📦 ${this.packageName} not found, installing...`);
                 const installSuccess = await this.installPackage(pythonCmd);
                 
                 if (!installSuccess) {
                     this.error('Failed to install the Python package');
-                    this.error('Please try:');
-                    this.error(`  uv pip install ${this.packageName}  (recommended)`);
-                    this.error('or');
-                    this.error(`  pip install ${this.packageName}`);
-                    this.error('or');
-                    this.error(`  pip install --user ${this.packageName}`);
+                    this.error('');
+                    this.error('This may be due to an externally-managed Python environment.');
+                    this.error('');
+                    this.error('Recommended solution:');
+                    this.error('  1. Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh');
+                    this.error('  2. Restart your terminal');
+                    this.error('  3. Run this command again');
+                    this.error('');
+                    this.error('Alternative solutions:');
+                    this.error(`  uv pip install ${this.packageName}  (if uv is installed)`);
+                    this.error(`  pip install --user ${this.packageName}  (may not work in managed environments)`);
                     process.exit(1);
                 }
             } else {
@@ -305,8 +368,8 @@ class StackOverflowMCPCLI {
             }
 
             // 5. Run the Python CLI
-            console.log('🚀 Starting StackOverflow MCP Server...');
-            console.log('');
+            this.info('🚀 Starting StackOverflow MCP Server...');
+            this.info('');
 
             // The Python module name is stackoverflow_mcp (not stackoverflow_fastmcp)
             const moduleName = 'stackoverflow_mcp';
@@ -315,14 +378,14 @@ class StackOverflowMCPCLI {
 
         } catch (error) {
             this.error(error.message);
-            console.log('');
-            console.log('💡 Troubleshooting:');
-            console.log('  1. Ensure Python 3.12+ is installed and in PATH');
-            console.log('  2. Ensure pip is available and working');
-            console.log('  3. Check network connectivity for package installation');
-            console.log('  4. Try running with --verbose for more details');
-            console.log('');
-            console.log('For more help, visit: https://github.com/NoTalkTech/stackoverflow-mcp');
+            this.info('');
+            this.info('💡 Troubleshooting:');
+            this.info('  1. Ensure Python 3.12+ is installed and in PATH');
+            this.info('  2. Ensure pip is available and working');
+            this.info('  3. Check network connectivity for package installation');
+            this.info('  4. Try running with --verbose for more details');
+            this.info('');
+            this.info('For more help, visit: https://github.com/NoTalkTech/stackoverflow-mcp');
             process.exit(1);
         }
     }
