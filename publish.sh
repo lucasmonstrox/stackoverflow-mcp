@@ -46,6 +46,119 @@ cleanup_and_rollback() {
 # 设置错误陷阱
 trap cleanup_and_rollback ERR INT TERM
 
+# PyPI authentication functions
+setup_pypi_auth() {
+    echo "Setting up PyPI authentication..."
+    
+    # Check for .pypirc file first
+    local pypirc_file="$HOME/.pypirc"
+    local pypirc_supported=false
+    
+    if [[ -f "$pypirc_file" ]]; then
+        echo "✓ Found .pypirc file at $pypirc_file"
+        
+        # Check if it has the required sections
+        if [[ $use_test_pypi == true ]]; then
+            if grep -q "\[testpypi\]" "$pypirc_file"; then
+                echo "✓ Test PyPI configuration found in .pypirc"
+                pypirc_supported=true
+            fi
+        else
+            if grep -q "\[pypi\]" "$pypirc_file"; then
+                echo "✓ PyPI configuration found in .pypirc"
+                pypirc_supported=true
+            fi
+        fi
+    fi
+    
+    # If .pypirc is not available or doesn't have required sections, check environment variables
+    if [[ $pypirc_supported != true ]]; then
+        if [[ $use_test_pypi == true ]]; then
+            if [[ -z "$TEST_PYPI_API_TOKEN" ]]; then
+                echo "⚠️  Warning: TEST_PYPI_API_TOKEN not set and no .pypirc configuration found."
+                echo ""
+                echo "To set up Test PyPI authentication, choose one of:"
+                echo ""
+                echo "1. Environment variable (current session):"
+                echo "   export TEST_PYPI_API_TOKEN=pypi-your-token"
+                echo ""
+                echo "2. Create .pypirc file (persistent):"
+                echo "   cat > ~/.pypirc << EOF"
+                echo "   [distutils]"
+                echo "   index-servers = testpypi"
+                echo "   "
+                echo "   [testpypi]"
+                echo "   repository = https://test.pypi.org/legacy/"
+                echo "   username = __token__"
+                echo "   password = pypi-your-token"
+                echo "   EOF"
+                echo ""
+                echo "3. Get Test PyPI token at: https://test.pypi.org/manage/account/token/"
+                echo ""
+                return 1
+            else
+                # Validate token format
+                if ! validate_pypi_token "$TEST_PYPI_API_TOKEN"; then
+                    echo "❌ Error: Invalid TEST_PYPI_API_TOKEN format"
+                    return 1
+                fi
+                echo "✓ Test PyPI token configured via environment variable"
+            fi
+        else
+            if [[ -z "$PYPI_API_TOKEN" ]]; then
+                echo "❌ Error: PYPI_API_TOKEN not set and no .pypirc configuration found."
+                echo ""
+                echo "To set up PyPI authentication, choose one of:"
+                echo ""
+                echo "1. Environment variable (current session):"
+                echo "   export PYPI_API_TOKEN=pypi-your-token"
+                echo ""
+                echo "2. Create .pypirc file (persistent):"
+                echo "   cat > ~/.pypirc << EOF"
+                echo "   [distutils]"
+                echo "   index-servers = pypi"
+                echo "   "
+                echo "   [pypi]"
+                echo "   repository = https://upload.pypi.org/legacy/"
+                echo "   username = __token__"
+                echo "   password = pypi-your-token"
+                echo "   EOF"
+                echo ""
+                echo "3. Get PyPI token at: https://pypi.org/manage/account/token/"
+                echo "   - Recommended: Create a project-scoped token for 'stackoverflow-mcp-fastmcp'"
+                echo ""
+                return 1
+            else
+                # Validate token format
+                if ! validate_pypi_token "$PYPI_API_TOKEN"; then
+                    echo "❌ Error: Invalid PYPI_API_TOKEN format"
+                    return 1
+                fi
+                echo "✓ PyPI token configured via environment variable"
+            fi
+        fi
+    fi
+    
+    return 0
+}
+
+validate_pypi_token() {
+    local token="$1"
+    
+    # PyPI tokens should start with 'pypi-' and be base64-like
+    if [[ ! "$token" =~ ^pypi-[A-Za-z0-9_-]{32,}$ ]]; then
+        echo "❌ Invalid token format. PyPI tokens should:"
+        echo "   - Start with 'pypi-'"
+        echo "   - Be followed by base64-like characters"
+        echo "   - Be at least 36 characters long"
+        echo ""
+        echo "Example: pypi-AgEIcHlwaS5vcmcCJGFiY2RlZi0xMjM0LTU2NzgtOWFiYy1kZWYwMTIzNDU2Nzg"
+        return 1
+    fi
+    
+    return 0
+}
+
 # Task 7: 脚本结构优化 - 命令行参数解析
 show_help() {
     echo "📦 StackOverflow MCP Server - 统一发布脚本"
@@ -218,16 +331,28 @@ echo ""
 echo "📥 Pulling latest changes..."
 git pull origin $current_branch
 
-# 检查npm登录状态
+# 检查认证状态
 echo ""
-echo "🔐 Checking NPM authentication..."
-if ! npm whoami >/dev/null 2>&1; then
-    echo "❌ Error: Not logged in to NPM. Please run 'npm login' first."
-    exit 1
+echo "🔐 Checking authentication..."
+
+if [[ $python_only != true ]]; then
+    # 检查npm登录状态
+    echo "Checking NPM authentication..."
+    if ! npm whoami >/dev/null 2>&1; then
+        echo "❌ Error: Not logged in to NPM. Please run 'npm login' first."
+        exit 1
+    fi
+    current_user=$(npm whoami)
+    echo "✓ NPM logged in as: $current_user"
 fi
 
-current_user=$(npm whoami)
-echo "✓ Logged in as: $current_user"
+if [[ $npm_only != true ]]; then
+    # 检查PyPI认证
+    echo "Checking PyPI authentication..."
+    if ! setup_pypi_auth; then
+        exit 1
+    fi
+fi
 
 # Task 2: 安全审计功能
 if [[ $skip_audit != true ]]; then
