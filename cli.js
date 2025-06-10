@@ -16,7 +16,7 @@ const os = require('os');
 class StackOverflowMCPCLI {
     constructor() {
         this.pythonCommands = ['python3', 'python'];
-        this.packageName = 'stackoverflow-mcp-fastmcp';
+        this.packageName = 'stackoverflow-fastmcp';
         this.verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
     }
 
