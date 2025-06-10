@@ -441,7 +441,11 @@ class StackOverflowMCPCLI {
             // The Python module name is stackoverflow_mcp (not stackoverflow_fastmcp)
             const moduleName = 'stackoverflow_mcp';
             const pythonPath = this.getVirtualEnvPython();
-            const result = await this.runCommand(pythonPath, ['-m', moduleName, ...filteredArgs]);
+            
+            // In MCP mode, use stdio: 'inherit' for direct communication
+            // In non-MCP mode, allow normal output
+            const runOptions = this.isMCPMode ? { stdio: 'inherit' } : {};
+            const result = await this.runCommand(pythonPath, ['-m', moduleName, ...filteredArgs], runOptions);
             process.exit(result.code);
 
         } catch (error) {
