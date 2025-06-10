@@ -17,7 +17,7 @@ class StackOverflowMCPCLI {
     constructor() {
         this.pythonCommands = ['python3', 'python'];
         this.packageName = 'stackoverflow-fastmcp';
-        this.expectedVersion = '0.2.0';  // Expected complete version
+        this.expectedVersion = '0.2.1';  // Expected complete version
         this.verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
         // Detect MCP mode - should be silent for stdio communication
         this.isMCPMode = this.detectMCPMode();
