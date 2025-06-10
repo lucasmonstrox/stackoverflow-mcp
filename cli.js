@@ -178,17 +178,27 @@ class StackOverflowMCPCLI {
         this.info(`🔧 Creating virtual environment at ${venvPath}...`);
         
         try {
-            // Create virtual environment with isolated settings
+            // Create virtual environment with completely isolated settings
             const createEnv = {
-                ...process.env,
-                UV_NO_PROJECT: '1',  // Disable project detection
+                HOME: process.env.HOME,
+                PATH: process.env.PATH,
+                USER: process.env.USER || 'user',
+                LANG: process.env.LANG || 'en_US.UTF-8',
+                // Strong isolation flags
+                UV_NO_PROJECT: '1',
+                UV_CACHE_DIR: path.join(venvPath, '.uv-cache'),
+                // Clear any existing virtual environment variables
                 VIRTUAL_ENV: undefined,
-                UV_PROJECT_ENVIRONMENT: undefined
+                UV_PROJECT_ENVIRONMENT: undefined,
+                CONDA_DEFAULT_ENV: undefined,
+                CONDA_PREFIX: undefined,
+                PYENV_VERSION: undefined
             };
             
             const createResult = await this.runCommand('uv', ['venv', venvPath, '--python', '3.12'], { 
                 stdio: 'pipe',
-                env: createEnv
+                env: createEnv,
+                cwd: '/tmp'  // Run from neutral directory
             });
             
             if (createResult.code !== 0) {
@@ -196,7 +206,8 @@ class StackOverflowMCPCLI {
                 // Try without specific Python version
                 const createFallback = await this.runCommand('uv', ['venv', venvPath], { 
                     stdio: 'pipe',
-                    env: createEnv
+                    env: createEnv,
+                    cwd: '/tmp'  // Run from neutral directory
                 });
                 if (createFallback.code !== 0) {
                     this.log(`Fallback creation also failed: ${createFallback.stderr}`);
@@ -236,15 +247,31 @@ class StackOverflowMCPCLI {
             this.log('Installing package with uv...');
             const packageSpec = `${this.packageName}==${this.expectedVersion}`;
             const uvArgs = ['--python-preference', 'only-managed', 'pip', 'install', packageSpec];
-            const uvOptions = {
-                env: { 
-                    ...process.env, 
-                    UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath,
-                    UV_NO_PROJECT: '1'  // Disable project detection
-                }
+            
+            // Create completely isolated environment
+            const cleanEnv = {
+                HOME: process.env.HOME,
+                PATH: process.env.PATH,
+                USER: process.env.USER || 'user',
+                LANG: process.env.LANG || 'en_US.UTF-8',
+                // Set virtual environment
+                UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath,
+                // Strong isolation flags
+                UV_NO_PROJECT: '1',
+                UV_CACHE_DIR: path.join(uvEnvInfo.venvPath, '.uv-cache'),
+                // Clear any existing virtual environment variables
+                VIRTUAL_ENV: undefined,
+                CONDA_DEFAULT_ENV: undefined,
+                CONDA_PREFIX: undefined,
+                PYENV_VERSION: undefined
             };
 
-            this.log(`Using virtual environment at ${uvEnvInfo.venvPath}`);
+            const uvOptions = {
+                env: cleanEnv,
+                cwd: '/tmp'  // Run from a neutral directory
+            };
+
+            this.log(`Installing in isolated virtual environment at ${uvEnvInfo.venvPath}`);
             const result = await this.runCommand('uv', uvArgs, uvOptions);
             
             if (result.code === 0) {
