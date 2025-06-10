@@ -27,13 +27,15 @@ class StackOverflowMCPCLI {
     }
 
     detectMCPMode() {
-        // MCP mode detection: no --help, has --port, or called via MCP
+        // MCP stdio mode detection: only suppress output for true stdio mode
         const args = process.argv.slice(2);
         const hasPort = args.includes('--port');
         const hasHelp = args.includes('--help') || args.includes('-h');
-        const isStdio = !hasPort && !hasHelp; // Default MCP uses stdio
         
-        return (hasPort || isStdio) && !hasHelp;
+        // Only suppress output for stdio mode (no --port, no --help)
+        const isStdioMode = !hasPort && !hasHelp;
+        
+        return isStdioMode;
     }
 
     log(message) {
