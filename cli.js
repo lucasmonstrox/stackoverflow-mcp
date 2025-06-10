@@ -91,7 +91,9 @@ class StackOverflowMCPCLI {
 
     async checkPackageInstalled(pythonCmd) {
         try {
-            const result = await this.runCommand(pythonCmd, ['-c', `import ${this.packageName.replace('-', '_')}`], { stdio: 'pipe' });
+            // The Python module name is stackoverflow_mcp (not stackoverflow_fastmcp)
+            const moduleName = 'stackoverflow_mcp';
+            const result = await this.runCommand(pythonCmd, ['-c', `import ${moduleName}`], { stdio: 'pipe' });
             return result.code === 0;
         } catch (error) {
             return false;
@@ -306,7 +308,9 @@ class StackOverflowMCPCLI {
             console.log('🚀 Starting StackOverflow MCP Server...');
             console.log('');
 
-            const result = await this.runCommand(pythonCmd, ['-m', this.packageName.replace('-', '_'), ...filteredArgs]);
+            // The Python module name is stackoverflow_mcp (not stackoverflow_fastmcp)
+            const moduleName = 'stackoverflow_mcp';
+            const result = await this.runCommand(pythonCmd, ['-m', moduleName, ...filteredArgs]);
             process.exit(result.code);
 
         } catch (error) {
