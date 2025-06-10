@@ -129,11 +129,32 @@ fi
 echo ""
 echo "🔧 Checking environment requirements..."
 
-# 检查 Node.js 版本
-if ! command -v node >/dev/null 2>&1; then
-    echo "❌ Error: Node.js is not installed"
-    exit 1
+# 检查 Python 环境 (如果需要发布 Python 包)
+if [[ $npm_only != true ]]; then
+    echo "Checking Python environment..."
+    
+    # 检查 uv
+    if ! command -v uv >/dev/null 2>&1; then
+        echo "❌ Error: uv is not installed. Please install it first:"
+        echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+        exit 1
+    fi
+    echo "✓ uv version: $(uv --version)"
+    
+    # 检查 pyproject.toml
+    if [[ ! -f "pyproject.toml" ]]; then
+        echo "❌ Error: pyproject.toml not found"
+        exit 1
+    fi
+    echo "✓ Python project structure validated"
 fi
+
+# 检查 Node.js 版本 (如果需要发布 NPM 包)
+if [[ $python_only != true ]]; then
+    if ! command -v node >/dev/null 2>&1; then
+        echo "❌ Error: Node.js is not installed"
+        exit 1
+    fi
 
 node_version=$(node --version | sed 's/v//')
 required_node="14.0.0"
@@ -154,8 +175,9 @@ if ! command -v npm >/dev/null 2>&1; then
     exit 1
 fi
 
-npm_version=$(npm --version)
-echo "✓ npm version: $npm_version"
+    npm_version=$(npm --version)
+    echo "✓ npm version: $npm_version"
+fi
 
 # 验证当前工作目录是否为 Git 仓库根目录
 if [[ ! -d ".git" ]]; then
@@ -165,7 +187,7 @@ fi
 echo "✓ Git repository detected"
 
 # 检查是否在正确的目录
-if [[ ! -f "package.json" ]] || [[ ! -f "cli.js" ]]; then
+if [[ $python_only != true ]] && ([[ ! -f "package.json" ]] || [[ ! -f "cli.js" ]]); then
     echo "❌ Error: Please run this script from the project root directory"
     exit 1
 fi
