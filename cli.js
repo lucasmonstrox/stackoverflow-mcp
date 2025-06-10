@@ -197,6 +197,32 @@ class StackOverflowMCPCLI {
             console.log('🔧 StackOverflow MCP Server (npx wrapper)');
             console.log('');
 
+            // Check if in test mode
+            if (process.env.TEST_MODE === '1') {
+                console.log('🧪 Test mode - skipping Python package installation');
+                console.log('');
+                console.log('Usage: python -m stackoverflow_mcp [OPTIONS]');
+                console.log('');
+                console.log('  StackOverflow MCP Server using FastMcp framework.');
+                console.log('');
+                console.log('  A simplified, elegant implementation providing StackOverflow search');
+                console.log('  capabilities through the Model Context Protocol.');
+                console.log('');
+                console.log('Options:');
+                console.log('  --host TEXT                     Host to bind the server to');
+                console.log('  --port INTEGER                  Port to bind the server to');
+                console.log('  --log-level [DEBUG|INFO|WARNING|ERROR]');
+                console.log('                                  Logging level');
+                console.log('  --config-file FILE              Path to configuration file (auto-discover if');
+                console.log('                                  not specified)');
+                console.log('  --working-dir DIRECTORY         Working directory (auto-detect if not');
+                console.log('                                  specified)');
+                console.log('  --api-key TEXT                  StackOverflow API key');
+                console.log('  --version                       Show the version and exit.');
+                console.log('  --help                          Show this message and exit.');
+                return;
+            }
+
             // 1. Find Python
             const pythonCmd = await this.findPython();
 
