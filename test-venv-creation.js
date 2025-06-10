@@ -51,7 +51,7 @@ async function testVirtualEnvironmentCreation() {
         };
         
         // Run CLI in isolated environment
-        const child = spawn('npx', ['@notalk-tech/stackoverflow-mcp@1.0.10', '--help', '--verbose'], {
+        const child = spawn('npx', ['@notalk-tech/stackoverflow-mcp@1.0.11', '--help', '--verbose'], {
             cwd: tempDir,
             env: cleanEnv,
             stdio: ['pipe', 'pipe', 'pipe']

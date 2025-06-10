@@ -221,7 +221,11 @@ class StackOverflowMCPCLI {
             // Verify the virtual environment works
             const verifyResult = await this.runCommand('uv', ['--python-preference', 'only-managed', 'pip', 'list'], {
                 stdio: 'pipe',
-                env: { ...process.env, UV_PROJECT_ENVIRONMENT: venvPath }
+                env: { 
+                    ...process.env, 
+                    UV_PROJECT_ENVIRONMENT: venvPath,
+                    UV_NO_PROJECT: '1'  // Disable project detection
+                }
             });
             
             if (verifyResult.code === 0) {
@@ -293,8 +297,12 @@ class StackOverflowMCPCLI {
                 const uvOptions = {};
                 
                 if (uvEnvInfo.hasVenv && uvEnvInfo.venvPath !== 'current' && uvEnvInfo.venvPath !== 'project') {
-                    // Use specific virtual environment
-                    uvOptions.env = { ...process.env, UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath };
+                    // Use specific virtual environment with isolated settings
+                    uvOptions.env = { 
+                        ...process.env, 
+                        UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath,
+                        UV_NO_PROJECT: '1'  // Disable project detection
+                    };
                     uvArgs.unshift('--python-preference', 'only-managed');
                     this.log(`Using virtual environment at ${uvEnvInfo.venvPath}`);
                 } else if (!uvEnvInfo.hasVenv) {
@@ -342,7 +350,11 @@ class StackOverflowMCPCLI {
                     const uvOptions = {};
                     
                     if (uvEnvInfo.hasVenv && uvEnvInfo.venvPath !== 'current' && uvEnvInfo.venvPath !== 'project') {
-                        uvOptions.env = { ...process.env, UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath };
+                        uvOptions.env = { 
+                            ...process.env, 
+                            UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath,
+                            UV_NO_PROJECT: '1'  // Disable project detection
+                        };
                         uvArgs.unshift('--python-preference', 'only-managed');
                     } else if (!uvEnvInfo.hasVenv) {
                         uvArgs.push('--system');
