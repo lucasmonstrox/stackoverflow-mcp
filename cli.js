@@ -15,9 +15,9 @@ const os = require('os');
 
 class StackOverflowMCPCLI {
     constructor() {
-        this.pythonCommands = ['python3.12', 'python3.13', 'python3', 'python'];
+        this.pythonCommands = ['python3', 'python'];
         this.packageName = 'stackoverflow-fastmcp';
-        this.expectedVersion = '0.2.2';  // Expected complete version
+        this.expectedVersion = '0.2.1';  // Expected complete version
         this.verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
         // Detect MCP mode - should be silent for stdio communication
         this.isMCPMode = this.detectMCPMode();
@@ -59,23 +59,14 @@ class StackOverflowMCPCLI {
                 const result = await this.runCommand(cmd, ['--version'], { stdio: 'pipe' });
                 if (result.code === 0) {
                     const version = result.stdout.toString().trim();
-                    const versionMatch = version.match(/Python (\d+)\.(\d+)/);
-                    if (versionMatch) {
-                        const major = parseInt(versionMatch[1]);
-                        const minor = parseInt(versionMatch[2]);
-                        if (major >= 3 && (major > 3 || minor >= 10)) {
-                            this.log(`Found compatible Python: ${cmd} (${version})`);
-                            return cmd;
-                        } else {
-                            this.log(`${cmd} version ${version} is too old (need 3.10+)`);
-                        }
-                    }
+                    this.log(`Found Python: ${cmd} (${version})`);
+                    return cmd;
                 }
             } catch (error) {
                 this.log(`${cmd} not found: ${error.message}`);
             }
         }
-        throw new Error('Python 3.10+ is required but not found. Please install Python 3.10+ from https://www.python.org/');
+        throw new Error('Python 3.12+ is required but not found. Please install Python from https://www.python.org/');
     }
 
     async runCommand(command, args = [], options = {}) {
@@ -174,10 +165,52 @@ class StackOverflowMCPCLI {
         }
     }
 
+    async ensureUvVirtualEnv() {
+        const uvAvailable = await this.checkUvAvailable();
+        if (!uvAvailable) {
+            return { hasVenv: false, venvPath: null };
+        }
+
+        // Check if we're already in a virtual environment
+        const venvCheck = await this.runCommand('uv', ['pip', 'list'], { stdio: 'pipe' });
+        if (venvCheck.code === 0) {
+            this.log('Already in a uv virtual environment');
+            return { hasVenv: true, venvPath: process.env.VIRTUAL_ENV || 'current' };
+        }
+
+        // Create a global virtual environment for stackoverflow-mcp in user's home
+        const homeDir = os.homedir();
+        const venvPath = path.join(homeDir, '.stackoverflow-mcp-venv');
+        
+        this.log(`Creating virtual environment at ${venvPath}...`);
+        
+        try {
+            // Create virtual environment
+            const createResult = await this.runCommand('uv', ['venv', venvPath], { stdio: 'pipe' });
+            if (createResult.code !== 0) {
+                this.log(`Failed to create virtual environment: ${createResult.stderr}`);
+                return { hasVenv: false, venvPath: null };
+            }
+            
+            this.info(`✅ Created virtual environment at ${venvPath}`);
+            return { hasVenv: true, venvPath };
+            
+        } catch (error) {
+            this.log(`Virtual environment creation failed: ${error.message}`);
+            return { hasVenv: false, venvPath: null };
+        }
+    }
+
     async installPackage(pythonCmd) {
         this.log(`Installing ${this.packageName} Python package...`);
         
         const uvAvailable = await this.checkUvAvailable();
+        let uvEnvInfo = null;
+        
+        // Ensure virtual environment for uv if available
+        if (uvAvailable) {
+            uvEnvInfo = await this.ensureUvVirtualEnv();
+        }
         
         // First priority: If we're in a development environment, install locally
         if (existsSync('pyproject.toml') || existsSync('setup.py')) {
@@ -185,7 +218,11 @@ class StackOverflowMCPCLI {
                 this.log('Found development environment, installing locally...');
                 if (uvAvailable) {
                     // Try uv development install first
-                    const uvResult = await this.runCommand('uv', ['pip', 'install', '--system', '--python', pythonCmd, '-e', '.']);
+                    const uvArgs = ['pip', 'install', '-e', '.'];
+                    if (!uvEnvInfo.hasVenv) {
+                        uvArgs.push('--system');  // Use system if no venv available
+                    }
+                    const uvResult = await this.runCommand('uv', uvArgs);
                     if (uvResult.code === 0) {
                         this.info(`✅ Successfully installed ${this.packageName} (development mode via uv)`);
                         return true;
@@ -209,7 +246,14 @@ class StackOverflowMCPCLI {
             try {
                 this.log('Using uv for package installation...');
                 const packageSpec = `${this.packageName}==${this.expectedVersion}`;
-                const result = await this.runCommand('uv', ['pip', 'install', '--system', '--python', pythonCmd, packageSpec]);
+                const uvArgs = ['pip', 'install', packageSpec];
+                
+                if (!uvEnvInfo.hasVenv) {
+                    this.log('No virtual environment available, using --system flag');
+                    uvArgs.push('--system');
+                }
+                
+                const result = await this.runCommand('uv', uvArgs);
                 if (result.code === 0) {
                     this.info(`✅ Successfully installed ${this.packageName} (via uv)`);
                     return true;
@@ -245,7 +289,13 @@ class StackOverflowMCPCLI {
                 this.info('🔧 Retrying with uv (which handles externally-managed environments)...');
                 try {
                     const packageSpec = `${this.packageName}==${this.expectedVersion}`;
-                    const result = await this.runCommand('uv', ['pip', 'install', '--system', '--python', pythonCmd, packageSpec]);
+                    const uvArgs = ['pip', 'install', packageSpec];
+                    
+                    if (!uvEnvInfo.hasVenv) {
+                        uvArgs.push('--system');
+                    }
+                    
+                    const result = await this.runCommand('uv', uvArgs);
                     if (result.code === 0) {
                         this.info(`✅ Successfully installed ${this.packageName} (via uv)`);
                         return true;
@@ -264,8 +314,7 @@ class StackOverflowMCPCLI {
         if (!isExternallyManaged) {
             try {
                 this.log('Trying user installation...');
-                const packageSpec = `${this.packageName}==${this.expectedVersion}`;
-                const result = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', '--user', packageSpec]);
+                const result = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', '--user', this.packageName]);
                 if (result.code === 0) {
                     this.info(`✅ Successfully installed ${this.packageName} (user installation)`);
                     return true;
