@@ -15,9 +15,9 @@ const os = require('os');
 
 class StackOverflowMCPCLI {
     constructor() {
-        this.pythonCommands = ['python3', 'python'];
+        this.pythonCommands = ['python3.12', 'python3.13', 'python3', 'python'];
         this.packageName = 'stackoverflow-fastmcp';
-        this.expectedVersion = '0.2.1';  // Expected complete version
+        this.expectedVersion = '0.2.2';  // Expected complete version
         this.verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
         // Detect MCP mode - should be silent for stdio communication
         this.isMCPMode = this.detectMCPMode();
@@ -59,14 +59,23 @@ class StackOverflowMCPCLI {
                 const result = await this.runCommand(cmd, ['--version'], { stdio: 'pipe' });
                 if (result.code === 0) {
                     const version = result.stdout.toString().trim();
-                    this.log(`Found Python: ${cmd} (${version})`);
-                    return cmd;
+                    const versionMatch = version.match(/Python (\d+)\.(\d+)/);
+                    if (versionMatch) {
+                        const major = parseInt(versionMatch[1]);
+                        const minor = parseInt(versionMatch[2]);
+                        if (major >= 3 && (major > 3 || minor >= 10)) {
+                            this.log(`Found compatible Python: ${cmd} (${version})`);
+                            return cmd;
+                        } else {
+                            this.log(`${cmd} version ${version} is too old (need 3.10+)`);
+                        }
+                    }
                 }
             } catch (error) {
                 this.log(`${cmd} not found: ${error.message}`);
             }
         }
-        throw new Error('Python 3.12+ is required but not found. Please install Python from https://www.python.org/');
+        throw new Error('Python 3.10+ is required but not found. Please install Python 3.10+ from https://www.python.org/');
     }
 
     async runCommand(command, args = [], options = {}) {
@@ -176,7 +185,7 @@ class StackOverflowMCPCLI {
                 this.log('Found development environment, installing locally...');
                 if (uvAvailable) {
                     // Try uv development install first
-                    const uvResult = await this.runCommand('uv', ['pip', 'install', '-e', '.']);
+                    const uvResult = await this.runCommand('uv', ['pip', 'install', '--system', '--python', pythonCmd, '-e', '.']);
                     if (uvResult.code === 0) {
                         this.info(`✅ Successfully installed ${this.packageName} (development mode via uv)`);
                         return true;
@@ -200,7 +209,7 @@ class StackOverflowMCPCLI {
             try {
                 this.log('Using uv for package installation...');
                 const packageSpec = `${this.packageName}==${this.expectedVersion}`;
-                const result = await this.runCommand('uv', ['pip', 'install', packageSpec]);
+                const result = await this.runCommand('uv', ['pip', 'install', '--system', '--python', pythonCmd, packageSpec]);
                 if (result.code === 0) {
                     this.info(`✅ Successfully installed ${this.packageName} (via uv)`);
                     return true;
@@ -235,7 +244,8 @@ class StackOverflowMCPCLI {
             if (uvAvailable) {
                 this.info('🔧 Retrying with uv (which handles externally-managed environments)...');
                 try {
-                    const result = await this.runCommand('uv', ['pip', 'install', this.packageName]);
+                    const packageSpec = `${this.packageName}==${this.expectedVersion}`;
+                    const result = await this.runCommand('uv', ['pip', 'install', '--system', '--python', pythonCmd, packageSpec]);
                     if (result.code === 0) {
                         this.info(`✅ Successfully installed ${this.packageName} (via uv)`);
                         return true;
@@ -254,7 +264,8 @@ class StackOverflowMCPCLI {
         if (!isExternallyManaged) {
             try {
                 this.log('Trying user installation...');
-                const result = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', '--user', this.packageName]);
+                const packageSpec = `${this.packageName}==${this.expectedVersion}`;
+                const result = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', '--user', packageSpec]);
                 if (result.code === 0) {
                     this.info(`✅ Successfully installed ${this.packageName} (user installation)`);
                     return true;
