@@ -231,27 +231,22 @@ class StackOverflowMCPCLI {
             return false;
         }
 
-        // Install package using uv
+        // Install package using uv in the virtual environment
         try {
             this.log('Installing package with uv...');
             const packageSpec = `${this.packageName}==${this.expectedVersion}`;
-            const uvArgs = ['pip', 'install', packageSpec];
-            const uvOptions = {};
-
-            if (uvEnvInfo.venvPath !== 'current' && uvEnvInfo.venvPath !== 'project') {
-                // Use specific virtual environment with isolated settings
-                uvOptions.env = { 
+            const uvArgs = ['--python-preference', 'only-managed', 'pip', 'install', packageSpec];
+            const uvOptions = {
+                env: { 
                     ...process.env, 
                     UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath,
                     UV_NO_PROJECT: '1'  // Disable project detection
-                };
-                uvArgs.unshift('--python-preference', 'only-managed');
-                this.log(`Using virtual environment at ${uvEnvInfo.venvPath}`);
-            } else if (!uvEnvInfo.hasVenv) {
-                uvArgs.push('--system');
-            }
+                }
+            };
 
+            this.log(`Using virtual environment at ${uvEnvInfo.venvPath}`);
             const result = await this.runCommand('uv', uvArgs, uvOptions);
+            
             if (result.code === 0) {
                 this.info(`✅ Successfully installed ${this.packageName} (via uv)`);
                 return true;
