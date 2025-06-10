@@ -166,49 +166,23 @@ class StackOverflowMCPCLI {
     }
 
     async ensureUvVirtualEnv() {
-        const uvAvailable = await this.checkUvAvailable();
-        if (!uvAvailable) {
-            return { hasVenv: false, venvPath: null };
-        }
-
-        // Check if we're in an explicit virtual environment (via environment variables)
-        if (process.env.VIRTUAL_ENV || process.env.UV_PROJECT_ENVIRONMENT) {
-            this.log(`Already in a virtual environment: ${process.env.VIRTUAL_ENV || process.env.UV_PROJECT_ENVIRONMENT}`);
-            return { hasVenv: true, venvPath: process.env.VIRTUAL_ENV || process.env.UV_PROJECT_ENVIRONMENT };
-        }
-
-        // Check if we're in a development environment (uv may auto-detect project venv)
-        if (existsSync('pyproject.toml') || existsSync('setup.py') || existsSync('.venv')) {
-            this.log('In development environment, uv will handle virtual environment automatically');
-            return { hasVenv: true, venvPath: 'project' };
-        }
-
-        // No virtual environment detected, try to create one
         const homeDir = os.homedir();
         const venvPath = path.join(homeDir, '.stackoverflow-mcp-venv');
         
         // Check if virtual environment already exists
         if (existsSync(venvPath)) {
-            this.log(`Found existing virtual environment at ${venvPath}`);
-            // Test if we can use it
-            const testVenv = await this.runCommand('uv', ['--python-preference', 'only-managed', 'pip', 'list'], { 
-                stdio: 'pipe',
-                env: { ...process.env, UV_PROJECT_ENVIRONMENT: venvPath }
-            });
-            if (testVenv.code === 0) {
-                this.info(`✅ Using existing virtual environment at ${venvPath}`);
-                return { hasVenv: true, venvPath };
-            }
+            this.log(`Using existing virtual environment at ${venvPath}`);
+            return { hasVenv: true, venvPath };
         }
         
         this.info(`🔧 Creating virtual environment at ${venvPath}...`);
         
         try {
-            // Create virtual environment with Python 3.12+ in isolated mode
+            // Create virtual environment with isolated settings
             const createEnv = {
                 ...process.env,
-                UV_NO_PROJECT: '1',  // Disable project detection during creation
-                VIRTUAL_ENV: undefined,  // Clear any existing virtual env
+                UV_NO_PROJECT: '1',  // Disable project detection
+                VIRTUAL_ENV: undefined,
                 UV_PROJECT_ENVIRONMENT: undefined
             };
             
@@ -216,6 +190,7 @@ class StackOverflowMCPCLI {
                 stdio: 'pipe',
                 env: createEnv
             });
+            
             if (createResult.code !== 0) {
                 this.log(`Failed to create virtual environment: ${createResult.stderr}`);
                 // Try without specific Python version
@@ -230,23 +205,7 @@ class StackOverflowMCPCLI {
             }
             
             this.info(`✅ Created virtual environment at ${venvPath}`);
-            
-            // Verify the virtual environment works
-            const verifyResult = await this.runCommand('uv', ['--python-preference', 'only-managed', 'pip', 'list'], {
-                stdio: 'pipe',
-                env: { 
-                    ...process.env, 
-                    UV_PROJECT_ENVIRONMENT: venvPath,
-                    UV_NO_PROJECT: '1'  // Disable project detection
-                }
-            });
-            
-            if (verifyResult.code === 0) {
-                return { hasVenv: true, venvPath };
-            } else {
-                this.log(`Virtual environment verification failed: ${verifyResult.stderr}`);
-                return { hasVenv: false, venvPath: null };
-            }
+            return { hasVenv: true, venvPath };
             
         } catch (error) {
             this.log(`Virtual environment creation failed: ${error.message}`);
@@ -257,154 +216,53 @@ class StackOverflowMCPCLI {
     async installPackage(pythonCmd) {
         this.log(`Installing ${this.packageName} Python package...`);
         
+        // Check if uv is available
         const uvAvailable = await this.checkUvAvailable();
-        let uvEnvInfo = null;
-        
-        // Ensure virtual environment for uv if available
-        if (uvAvailable) {
-            uvEnvInfo = await this.ensureUvVirtualEnv();
+        if (!uvAvailable) {
+            this.error('uv is required but not available');
+            this.info('📥 Please install uv: curl -LsSf https://astral.sh/uv/install.sh | sh');
+            return false;
         }
-        
-        // First priority: If we're in a development environment, install locally
-        if (existsSync('pyproject.toml') || existsSync('setup.py')) {
-            try {
-                this.log('Found development environment, installing locally...');
-                if (uvAvailable) {
-                    // Try uv development install first
-                    const uvArgs = ['pip', 'install', '-e', '.'];
-                    const uvOptions = {};
-                    
-                    if (uvEnvInfo.hasVenv && uvEnvInfo.venvPath !== 'current' && uvEnvInfo.venvPath !== 'project') {
-                        // Use specific virtual environment
-                        uvOptions.env = { ...process.env, UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath };
-                        uvArgs.unshift('--python-preference', 'only-managed');
-                    } else if (!uvEnvInfo.hasVenv) {
-                        uvArgs.push('--system');  // Use system if no venv available
-                    }
-                    
-                    const uvResult = await this.runCommand('uv', uvArgs, uvOptions);
-                    if (uvResult.code === 0) {
-                        this.info(`✅ Successfully installed ${this.packageName} (development mode via uv)`);
-                        return true;
-                    }
-                }
-                
-                // Fallback to pip for development install
-                const result = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', '-e', '.']);
-                if (result.code === 0) {
-                    this.info(`✅ Successfully installed ${this.packageName} (development mode)`);
-                    return true;
-                }
-            } catch (error) {
-                this.log(`Local install failed: ${error.message}`);
-                // Continue to PyPI installation
-            }
+
+        // Ensure virtual environment
+        const uvEnvInfo = await this.ensureUvVirtualEnv();
+        if (!uvEnvInfo.hasVenv) {
+            this.error('Failed to create or use virtual environment');
+            return false;
         }
-        
-        // Second priority: Try uv for PyPI package (faster and reliable, bypasses externally-managed-environment)
-        if (uvAvailable) {
-            try {
-                this.log('Using uv for package installation...');
-                const packageSpec = `${this.packageName}==${this.expectedVersion}`;
-                const uvArgs = ['pip', 'install', packageSpec];
-                const uvOptions = {};
-                
-                if (uvEnvInfo.hasVenv && uvEnvInfo.venvPath !== 'current' && uvEnvInfo.venvPath !== 'project') {
-                    // Use specific virtual environment with isolated settings
-                    uvOptions.env = { 
-                        ...process.env, 
-                        UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath,
-                        UV_NO_PROJECT: '1'  // Disable project detection
-                    };
-                    uvArgs.unshift('--python-preference', 'only-managed');
-                    this.log(`Using virtual environment at ${uvEnvInfo.venvPath}`);
-                } else if (!uvEnvInfo.hasVenv) {
-                    this.log('No virtual environment available, using --system flag');
-                    uvArgs.push('--system');
-                }
-                
-                const result = await this.runCommand('uv', uvArgs, uvOptions);
-                if (result.code === 0) {
-                    this.info(`✅ Successfully installed ${this.packageName} (via uv)`);
-                    return true;
-                }
-            } catch (error) {
-                this.log(`uv install failed: ${error.message}`);
-            }
-        }
-        
-        // Try pip install
-        let pipResult;
+
+        // Install package using uv
         try {
+            this.log('Installing package with uv...');
             const packageSpec = `${this.packageName}==${this.expectedVersion}`;
-            pipResult = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', packageSpec], { stdio: 'pipe' });
-            if (pipResult.code === 0) {
-                this.info(`✅ Successfully installed ${this.packageName}`);
-                return true;
+            const uvArgs = ['pip', 'install', packageSpec];
+            const uvOptions = {};
+
+            if (uvEnvInfo.venvPath !== 'current' && uvEnvInfo.venvPath !== 'project') {
+                // Use specific virtual environment with isolated settings
+                uvOptions.env = { 
+                    ...process.env, 
+                    UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath,
+                    UV_NO_PROJECT: '1'  // Disable project detection
+                };
+                uvArgs.unshift('--python-preference', 'only-managed');
+                this.log(`Using virtual environment at ${uvEnvInfo.venvPath}`);
+            } else if (!uvEnvInfo.hasVenv) {
+                uvArgs.push('--system');
             }
-        } catch (error) {
-            this.log(`pip install failed: ${error.message}`);
-        }
 
-        // Check for externally-managed-environment error
-        const isExternallyManaged = pipResult && (
-            pipResult.stderr.includes('externally-managed-environment') ||
-            pipResult.stderr.includes('EXTERNALLY-MANAGED')
-        );
-
-        if (isExternallyManaged) {
-            this.info('⚠️  Detected externally-managed Python environment');
-            
-            if (uvAvailable) {
-                this.info('🔧 Retrying with uv (which handles externally-managed environments)...');
-                try {
-                    const packageSpec = `${this.packageName}==${this.expectedVersion}`;
-                    const uvArgs = ['pip', 'install', packageSpec];
-                    const uvOptions = {};
-                    
-                    if (uvEnvInfo.hasVenv && uvEnvInfo.venvPath !== 'current' && uvEnvInfo.venvPath !== 'project') {
-                        uvOptions.env = { 
-                            ...process.env, 
-                            UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath,
-                            UV_NO_PROJECT: '1'  // Disable project detection
-                        };
-                        uvArgs.unshift('--python-preference', 'only-managed');
-                    } else if (!uvEnvInfo.hasVenv) {
-                        uvArgs.push('--system');
-                    }
-                    
-                    const result = await this.runCommand('uv', uvArgs, uvOptions);
-                    if (result.code === 0) {
-                        this.info(`✅ Successfully installed ${this.packageName} (via uv)`);
-                        return true;
-                    }
-                } catch (error) {
-                    this.log(`uv retry failed: ${error.message}`);
-                }
+            const result = await this.runCommand('uv', uvArgs, uvOptions);
+            if (result.code === 0) {
+                this.info(`✅ Successfully installed ${this.packageName} (via uv)`);
+                return true;
             } else {
-                this.info('❌ uv is not available to handle externally-managed environment');
-                this.info('📥 Please install uv: curl -LsSf https://astral.sh/uv/install.sh | sh');
+                this.error('Failed to install package with uv');
                 return false;
             }
+        } catch (error) {
+            this.error(`Package installation failed: ${error.message}`);
+            return false;
         }
-
-        // Try with user flag if not externally managed
-        if (!isExternallyManaged) {
-            try {
-                this.log('Trying user installation...');
-                const result = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', '--user', this.packageName]);
-                if (result.code === 0) {
-                    this.info(`✅ Successfully installed ${this.packageName} (user installation)`);
-                    return true;
-                }
-            } catch (error) {
-                this.log(`User pip install failed: ${error.message}`);
-            }
-        }
-
-
-
-        return false;
     }
 
     async detectWorkingDirectory() {
