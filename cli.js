@@ -4,8 +4,8 @@
  * StackOverflow MCP Server - NPX CLI Wrapper
  * 
  * This script provides npx compatibility for the Python-based StackOverflow MCP server.
- * It automatically handles Python environment detection, package installation, and 
- * working directory configuration.
+ * It automatically handles virtual environment creation with uv, package installation, 
+ * and server execution within the isolated environment.
  */
 
 const { spawn } = require('child_process');
@@ -15,7 +15,6 @@ const os = require('os');
 
 class StackOverflowMCPCLI {
     constructor() {
-        this.pythonCommands = ['python3', 'python'];
         this.packageName = 'stackoverflow-fastmcp';
         this.expectedVersion = '0.2.1';  // Expected complete version
         this.verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
@@ -23,6 +22,8 @@ class StackOverflowMCPCLI {
         this.isMCPMode = this.detectMCPMode();
         // Check for force reinstall flag
         this.forceReinstall = process.argv.includes('--force-reinstall');
+        // Virtual environment path
+        this.venvPath = path.join(os.homedir(), '.stackoverflow-mcp-venv');
     }
 
     detectMCPMode() {
@@ -51,22 +52,6 @@ class StackOverflowMCPCLI {
         if (!this.isMCPMode) {
             console.log(message);
         }
-    }
-
-    async findPython() {
-        for (const cmd of this.pythonCommands) {
-            try {
-                const result = await this.runCommand(cmd, ['--version'], { stdio: 'pipe' });
-                if (result.code === 0) {
-                    const version = result.stdout.toString().trim();
-                    this.log(`Found Python: ${cmd} (${version})`);
-                    return cmd;
-                }
-            } catch (error) {
-                this.log(`${cmd} not found: ${error.message}`);
-            }
-        }
-        throw new Error('Python 3.12+ is required but not found. Please install Python from https://www.python.org/');
     }
 
     async runCommand(command, args = [], options = {}) {
@@ -112,20 +97,98 @@ class StackOverflowMCPCLI {
         });
     }
 
-    async checkPackageInstalled(pythonCmd) {
+    async checkUvAvailable() {
         try {
+            const result = await this.runCommand('uv', ['--version'], { stdio: 'pipe' });
+            if (result.code === 0) {
+                this.log(`Found uv: ${result.stdout.trim()}`);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            this.log('uv not found in PATH');
+            return false;
+        }
+    }
+
+    async ensureUvVirtualEnv() {
+        // Check if virtual environment already exists and is valid
+        const pythonPath = this.getVirtualEnvPython();
+        if (existsSync(this.venvPath) && existsSync(pythonPath)) {
+            this.log(`Using existing virtual environment at ${this.venvPath}`);
+            return true;
+        }
+        
+        // Remove incomplete virtual environment if it exists
+        if (existsSync(this.venvPath)) {
+            this.log(`Removing incomplete virtual environment at ${this.venvPath}`);
+            try {
+                const { rmSync } = require('fs');
+                rmSync(this.venvPath, { recursive: true, force: true });
+            } catch (error) {
+                this.log(`Warning: Could not remove incomplete venv: ${error.message}`);
+            }
+        }
+        
+        this.info(`🔧 Creating virtual environment at ${this.venvPath}...`);
+        
+        try {
+            // Create virtual environment with uv
+            const createResult = await this.runCommand('uv', ['venv', this.venvPath, '--python', '3.12'], { 
+                stdio: 'pipe'
+            });
+            
+            if (createResult.code !== 0) {
+                this.log(`Failed to create virtual environment with Python 3.12: ${createResult.stderr}`);
+                // Try without specific Python version
+                const createFallback = await this.runCommand('uv', ['venv', this.venvPath], { 
+                    stdio: 'pipe'
+                });
+                if (createFallback.code !== 0) {
+                    this.log(`Fallback creation also failed: ${createFallback.stderr}`);
+                    return false;
+                }
+            }
+            
+            // Verify the virtual environment was created successfully
+            if (!existsSync(pythonPath)) {
+                this.log(`Virtual environment created but Python executable not found at ${pythonPath}`);
+                return false;
+            }
+            
+            this.info(`✅ Created virtual environment at ${this.venvPath}`);
+            return true;
+            
+        } catch (error) {
+            this.log(`Virtual environment creation failed: ${error.message}`);
+            return false;
+        }
+    }
+
+    getVirtualEnvPython() {
+        // Return path to Python executable in virtual environment
+        const isWindows = process.platform === 'win32';
+        const pythonExe = isWindows ? 'python.exe' : 'python';
+        const binDir = isWindows ? 'Scripts' : 'bin';
+        return path.join(this.venvPath, binDir, pythonExe);
+    }
+
+    async checkPackageInstalled() {
+        try {
+            const pythonPath = this.getVirtualEnvPython();
             // The Python module name is stackoverflow_mcp (not stackoverflow_fastmcp)
             const moduleName = 'stackoverflow_mcp';
-            const result = await this.runCommand(pythonCmd, ['-c', `import ${moduleName}`], { stdio: 'pipe' });
+            const result = await this.runCommand(pythonPath, ['-c', `import ${moduleName}`], { stdio: 'pipe' });
             return result.code === 0;
         } catch (error) {
             return false;
         }
     }
 
-    async checkPackageVersion(pythonCmd) {
+    async checkPackageVersion() {
         try {
-            const result = await this.runCommand(pythonCmd, ['-c', 
+            const pythonPath = this.getVirtualEnvPython();
+            const result = await this.runCommand(pythonPath, ['-c', 
                 `import ${this.packageName.replace('-', '_')}; print(${this.packageName.replace('-', '_')}.__version__)`
             ], { stdio: 'pipe' });
             
@@ -151,130 +214,51 @@ class StackOverflowMCPCLI {
         };
     }
 
-    async checkUvAvailable() {
+    async installPackage() {
+        this.log(`Installing ${this.packageName} Python package in virtual environment...`);
+        
         try {
-            const result = await this.runCommand('uv', ['--version'], { stdio: 'pipe' });
-            if (result.code === 0) {
-                this.log(`Found uv: ${result.stdout.trim()}`);
+            this.log('Installing package with uv in virtual environment...');
+            const packageSpec = `${this.packageName}==${this.expectedVersion}`;
+            
+            // Method 1: Try using uv pip install with --python
+            const result1 = await this.runCommand('uv', [
+                'pip', 'install', 
+                '--python', this.getVirtualEnvPython(),
+                packageSpec
+            ], { stdio: 'pipe' });
+            
+            if (result1.code === 0) {
+                this.info(`✅ Successfully installed ${this.packageName} in virtual environment`);
                 return true;
             }
-            return false;
-        } catch (error) {
-            this.log('uv not found in PATH');
-            return false;
-        }
-    }
-
-    async ensureUvVirtualEnv() {
-        const homeDir = os.homedir();
-        const venvPath = path.join(homeDir, '.stackoverflow-mcp-venv');
-        
-        // Check if virtual environment already exists
-        if (existsSync(venvPath)) {
-            this.log(`Using existing virtual environment at ${venvPath}`);
-            return { hasVenv: true, venvPath };
-        }
-        
-        this.info(`🔧 Creating virtual environment at ${venvPath}...`);
-        
-        try {
-            // Create virtual environment with isolated settings
-            const createEnv = {
+            
+            this.log(`Method 1 failed: ${result1.stderr}`);
+            
+            // Method 2: Try using environment variables
+            this.log('Trying alternative installation method...');
+            const installEnv = {
                 ...process.env,
-                // Strong isolation flags
-                UV_NO_PROJECT: '1',
-                UV_CACHE_DIR: path.join(venvPath, '.uv-cache'),
-                // Clear any existing virtual environment variables
-                VIRTUAL_ENV: undefined,
-                UV_PROJECT_ENVIRONMENT: undefined,
-                CONDA_DEFAULT_ENV: undefined,
-                CONDA_PREFIX: undefined,
-                PYENV_VERSION: undefined
+                VIRTUAL_ENV: this.venvPath,
+                PATH: `${path.join(this.venvPath, process.platform === 'win32' ? 'Scripts' : 'bin')}:${process.env.PATH}`
             };
             
-            const createResult = await this.runCommand('uv', ['venv', venvPath, '--python', '3.12'], { 
+            const result2 = await this.runCommand('uv', [
+                'pip', 'install', packageSpec
+            ], { 
                 stdio: 'pipe',
-                env: createEnv,
-                cwd: '/tmp'  // Run from neutral directory
+                env: installEnv
             });
             
-            if (createResult.code !== 0) {
-                this.log(`Failed to create virtual environment: ${createResult.stderr}`);
-                // Try without specific Python version
-                const createFallback = await this.runCommand('uv', ['venv', venvPath], { 
-                    stdio: 'pipe',
-                    env: createEnv,
-                    cwd: '/tmp'  // Run from neutral directory
-                });
-                if (createFallback.code !== 0) {
-                    this.log(`Fallback creation also failed: ${createFallback.stderr}`);
-                    return { hasVenv: false, venvPath: null };
-                }
-            }
-            
-            this.info(`✅ Created virtual environment at ${venvPath}`);
-            return { hasVenv: true, venvPath };
-            
-        } catch (error) {
-            this.log(`Virtual environment creation failed: ${error.message}`);
-            return { hasVenv: false, venvPath: null };
-        }
-    }
-
-    async installPackage(pythonCmd) {
-        this.log(`Installing ${this.packageName} Python package...`);
-        
-        // Check if uv is available
-        const uvAvailable = await this.checkUvAvailable();
-        if (!uvAvailable) {
-            this.error('uv is required but not available');
-            this.info('📥 Please install uv: curl -LsSf https://astral.sh/uv/install.sh | sh');
-            return false;
-        }
-
-        // Ensure virtual environment
-        const uvEnvInfo = await this.ensureUvVirtualEnv();
-        if (!uvEnvInfo.hasVenv) {
-            this.error('Failed to create or use virtual environment');
-            return false;
-        }
-
-        // Install package using uv in the virtual environment
-        try {
-            this.log('Installing package with uv...');
-            const packageSpec = `${this.packageName}==${this.expectedVersion}`;
-            const uvArgs = ['--python-preference', 'only-managed', 'pip', 'install', packageSpec];
-            
-            // Create isolated environment
-            const cleanEnv = {
-                ...process.env,
-                // Set virtual environment
-                UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath,
-                // Strong isolation flags
-                UV_NO_PROJECT: '1',
-                UV_CACHE_DIR: path.join(uvEnvInfo.venvPath, '.uv-cache'),
-                // Clear any existing virtual environment variables
-                VIRTUAL_ENV: undefined,
-                CONDA_DEFAULT_ENV: undefined,
-                CONDA_PREFIX: undefined,
-                PYENV_VERSION: undefined
-            };
-
-            const uvOptions = {
-                env: cleanEnv,
-                cwd: '/tmp'  // Run from a neutral directory
-            };
-
-            this.log(`Installing in isolated virtual environment at ${uvEnvInfo.venvPath}`);
-            const result = await this.runCommand('uv', uvArgs, uvOptions);
-            
-            if (result.code === 0) {
-                this.info(`✅ Successfully installed ${this.packageName} (via uv)`);
+            if (result2.code === 0) {
+                this.info(`✅ Successfully installed ${this.packageName} in virtual environment`);
                 return true;
-            } else {
-                this.error('Failed to install package with uv');
-                return false;
             }
+            
+            this.log(`Method 2 failed: ${result2.stderr}`);
+            this.error('Failed to install package with uv');
+            return false;
+            
         } catch (error) {
             this.error(`Package installation failed: ${error.message}`);
             return false;
@@ -363,10 +347,22 @@ class StackOverflowMCPCLI {
                 return;
             }
 
-            // 1. Find Python
-            const pythonCmd = await this.findPython();
+            // 1. Check uv availability
+            const uvAvailable = await this.checkUvAvailable();
+            if (!uvAvailable) {
+                this.error('uv is required but not available');
+                this.info('📥 Please install uv: curl -LsSf https://astral.sh/uv/install.sh | sh');
+                process.exit(1);
+            }
 
-            // 2. Detect working directory
+            // 2. Ensure virtual environment exists
+            const venvCreated = await this.ensureUvVirtualEnv();
+            if (!venvCreated) {
+                this.error('Failed to create or access virtual environment');
+                process.exit(1);
+            }
+
+            // 3. Detect working directory
             const workingDir = await this.detectWorkingDirectory();
             this.log(`Detected working directory: ${workingDir}`);
             
@@ -378,13 +374,13 @@ class StackOverflowMCPCLI {
                 // Continue with current directory
             }
 
-            // 3. Check package installation and version
-            const isInstalled = await this.checkPackageInstalled(pythonCmd);
+            // 4. Check package installation and version
+            const isInstalled = await this.checkPackageInstalled();
             let needsInstall = !isInstalled;
             let versionInfo = null;
             
             if (isInstalled) {
-                versionInfo = await this.checkPackageVersion(pythonCmd);
+                versionInfo = await this.checkPackageVersion();
                 
                 if (versionInfo.needsUpdate) {
                     this.info(`📦 ${this.packageName} found but outdated version (${versionInfo.version} → ${this.expectedVersion})`);
@@ -403,28 +399,22 @@ class StackOverflowMCPCLI {
                     this.info(`📦 ${this.packageName} not found, installing latest version (${this.expectedVersion})...`);
                 }
                 
-                const installSuccess = await this.installPackage(pythonCmd);
+                const installSuccess = await this.installPackage();
                 
                 if (!installSuccess) {
                     this.error('Failed to install the Python package');
                     this.error('');
-                    this.error('This may be due to an externally-managed Python environment.');
-                    this.error('');
-                    this.error('Recommended solution:');
-                    this.error('  1. Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh');
-                    this.error('  2. Restart your terminal');
-                    this.error('  3. Run this command again');
-                    this.error('');
-                    this.error('Alternative solutions:');
-                    this.error(`  uv pip install ${this.packageName}  (if uv is installed)`);
-                    this.error(`  pip install --user ${this.packageName}  (may not work in managed environments)`);
+                    this.error('Troubleshooting steps:');
+                    this.error('  1. Ensure uv is properly installed and in PATH');
+                    this.error('  2. Check network connectivity');
+                    this.error('  3. Try running with --verbose for more details');
                     this.error('');
                     this.error('For force reinstall, add --force-reinstall flag');
                     process.exit(1);
                 }
                 
                 // Verify installation after install/update
-                const newVersionInfo = await this.checkPackageVersion(pythonCmd);
+                const newVersionInfo = await this.checkPackageVersion();
                 if (newVersionInfo.installed) {
                     this.info(`✅ Successfully installed ${this.packageName} v${newVersionInfo.version}`);
                     if (newVersionInfo.version === this.expectedVersion) {
@@ -433,7 +423,7 @@ class StackOverflowMCPCLI {
                 }
             }
 
-            // 4. Filter and prepare CLI arguments
+            // 5. Filter and prepare CLI arguments
             const cliArgs = process.argv.slice(2);
             const filteredArgs = this.filterCliArgs(cliArgs);
             
@@ -442,23 +432,23 @@ class StackOverflowMCPCLI {
                 filteredArgs.push('--working-dir', workingDir);
             }
 
-            // 5. Run the Python CLI
-            this.info('🚀 Starting StackOverflow MCP Server...');
+            // 6. Run the Python CLI using virtual environment Python
+            this.info('🚀 Starting StackOverflow MCP Server in virtual environment...');
             this.info('');
 
             // The Python module name is stackoverflow_mcp (not stackoverflow_fastmcp)
             const moduleName = 'stackoverflow_mcp';
-            const result = await this.runCommand(pythonCmd, ['-m', moduleName, ...filteredArgs]);
+            const pythonPath = this.getVirtualEnvPython();
+            const result = await this.runCommand(pythonPath, ['-m', moduleName, ...filteredArgs]);
             process.exit(result.code);
 
         } catch (error) {
             this.error(error.message);
             this.info('');
             this.info('💡 Troubleshooting:');
-            this.info('  1. Ensure Python 3.12+ is installed and in PATH');
-            this.info('  2. Ensure pip is available and working');
-            this.info('  3. Check network connectivity for package installation');
-            this.info('  4. Try running with --verbose for more details');
+            this.info('  1. Ensure uv is installed and in PATH');
+            this.info('  2. Check network connectivity for package installation');
+            this.info('  3. Try running with --verbose for more details');
             this.info('');
             this.info('For more help, visit: https://github.com/NoTalkTech/stackoverflow-mcp');
             process.exit(1);

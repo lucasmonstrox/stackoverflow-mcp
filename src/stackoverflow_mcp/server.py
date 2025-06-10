@@ -259,7 +259,7 @@ async def server_status() -> Resource:
     try:
         status_data = {
             "server": "StackOverflow MCP Server",
-            "version": "0.1.0",
+            "version": "0.2.1",
             "config": {
                 "host": server.config.host,
                 "port": server.config.port,
