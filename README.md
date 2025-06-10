@@ -1,6 +1,6 @@
 # StackOverflow MCP Server
 
-[![npm version](https://badge.fury.io/js/@notalk%2Fstackoverflow-mcp.svg)](https://badge.fury.io/js/@notalk%2Fstackoverflow-mcp)
+[![npm version](https://badge.fury.io/js/@notalk-tech%2Fstackoverflow-mcp.svg)](https://badge.fury.io/js/@notalk-tech%2Fstackoverflow-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Model Context Protocol (MCP) server that provides seamless access to StackOverflow's programming Q&A database using the FastMCP framework. This package serves as an NPX-compatible wrapper for the Python-based StackOverflow MCP server.
