@@ -139,7 +139,32 @@ class StackOverflowMCPCLI {
         
         const uvAvailable = await this.checkUvAvailable();
         
-        // Try uv first if available (faster and more reliable, bypasses externally-managed-environment)
+        // First priority: If we're in a development environment, install locally
+        if (existsSync('pyproject.toml') || existsSync('setup.py')) {
+            try {
+                this.log('Found development environment, installing locally...');
+                if (uvAvailable) {
+                    // Try uv development install first
+                    const uvResult = await this.runCommand('uv', ['pip', 'install', '-e', '.']);
+                    if (uvResult.code === 0) {
+                        this.info(`✅ Successfully installed ${this.packageName} (development mode via uv)`);
+                        return true;
+                    }
+                }
+                
+                // Fallback to pip for development install
+                const result = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', '-e', '.']);
+                if (result.code === 0) {
+                    this.info(`✅ Successfully installed ${this.packageName} (development mode)`);
+                    return true;
+                }
+            } catch (error) {
+                this.log(`Local install failed: ${error.message}`);
+                // Continue to PyPI installation
+            }
+        }
+        
+        // Second priority: Try uv for PyPI package (faster and reliable, bypasses externally-managed-environment)
         if (uvAvailable) {
             try {
                 this.log('Using uv for package installation...');
@@ -206,31 +231,7 @@ class StackOverflowMCPCLI {
             }
         }
 
-        // If we're in a development environment, try local installation
-        if (existsSync('pyproject.toml') || existsSync('setup.py')) {
-            try {
-                this.log('Found development environment, installing locally...');
-                if (uvAvailable) {
-                    // Try uv development install first
-                    const uvResult = await this.runCommand('uv', ['pip', 'install', '-e', '.']);
-                    if (uvResult.code === 0) {
-                        this.info(`✅ Successfully installed ${this.packageName} (development mode via uv)`);
-                        return true;
-                    }
-                }
-                
-                // Fallback to pip (only if not externally managed)
-                if (!isExternallyManaged) {
-                    const result = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', '-e', '.']);
-                    if (result.code === 0) {
-                        this.info(`✅ Successfully installed ${this.packageName} (development mode)`);
-                        return true;
-                    }
-                }
-            } catch (error) {
-                this.log(`Local install failed: ${error.message}`);
-            }
-        }
+
 
         return false;
     }
