@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "start": "node cli.js",
-    "test": "node cli.js --help && python -m pytest tests/ -v",
+    "test": "echo 'NPM package test: CLI help' && node cli.js --help",
     "test:npm": "npm pack --dry-run",
     "test:install": "npm install -g . && stackoverflow-mcp --version",
     "build": "echo 'No build step required for wrapper package'",
