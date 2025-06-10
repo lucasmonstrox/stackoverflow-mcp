@@ -98,10 +98,34 @@ class StackOverflowMCPCLI {
         }
     }
 
+    async checkUvAvailable() {
+        try {
+            const result = await this.runCommand('uv', ['--version'], { stdio: 'pipe' });
+            return result.code === 0;
+        } catch (error) {
+            return false;
+        }
+    }
+
     async installPackage(pythonCmd) {
         this.log(`Installing ${this.packageName} Python package...`);
         
-        // Try pip install first
+        // Try uv first if available (faster and more reliable)
+        const uvAvailable = await this.checkUvAvailable();
+        if (uvAvailable) {
+            try {
+                this.log('Using uv for package installation...');
+                const result = await this.runCommand('uv', ['pip', 'install', this.packageName]);
+                if (result.code === 0) {
+                    console.log(`✅ Successfully installed ${this.packageName} (via uv)`);
+                    return true;
+                }
+            } catch (error) {
+                this.log(`uv install failed: ${error.message}`);
+            }
+        }
+        
+        // Try pip install
         try {
             const result = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', this.packageName]);
             if (result.code === 0) {
@@ -128,6 +152,16 @@ class StackOverflowMCPCLI {
         if (existsSync('pyproject.toml') || existsSync('setup.py')) {
             try {
                 this.log('Found development environment, installing locally...');
+                if (uvAvailable) {
+                    // Try uv development install first
+                    const uvResult = await this.runCommand('uv', ['pip', 'install', '-e', '.']);
+                    if (uvResult.code === 0) {
+                        console.log(`✅ Successfully installed ${this.packageName} (development mode via uv)`);
+                        return true;
+                    }
+                }
+                
+                // Fallback to pip
                 const result = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', '-e', '.']);
                 if (result.code === 0) {
                     console.log(`✅ Successfully installed ${this.packageName} (development mode)`);
@@ -248,6 +282,8 @@ class StackOverflowMCPCLI {
                 if (!installSuccess) {
                     this.error('Failed to install the Python package');
                     this.error('Please try:');
+                    this.error(`  uv pip install ${this.packageName}  (recommended)`);
+                    this.error('or');
                     this.error(`  pip install ${this.packageName}`);
                     this.error('or');
                     this.error(`  pip install --user ${this.packageName}`);
