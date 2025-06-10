@@ -204,12 +204,25 @@ class StackOverflowMCPCLI {
         this.info(`🔧 Creating virtual environment at ${venvPath}...`);
         
         try {
-            // Create virtual environment with Python 3.12+
-            const createResult = await this.runCommand('uv', ['venv', venvPath, '--python', '3.12'], { stdio: 'pipe' });
+            // Create virtual environment with Python 3.12+ in isolated mode
+            const createEnv = {
+                ...process.env,
+                UV_NO_PROJECT: '1',  // Disable project detection during creation
+                VIRTUAL_ENV: undefined,  // Clear any existing virtual env
+                UV_PROJECT_ENVIRONMENT: undefined
+            };
+            
+            const createResult = await this.runCommand('uv', ['venv', venvPath, '--python', '3.12'], { 
+                stdio: 'pipe',
+                env: createEnv
+            });
             if (createResult.code !== 0) {
                 this.log(`Failed to create virtual environment: ${createResult.stderr}`);
                 // Try without specific Python version
-                const createFallback = await this.runCommand('uv', ['venv', venvPath], { stdio: 'pipe' });
+                const createFallback = await this.runCommand('uv', ['venv', venvPath], { 
+                    stdio: 'pipe',
+                    env: createEnv
+                });
                 if (createFallback.code !== 0) {
                     this.log(`Fallback creation also failed: ${createFallback.stderr}`);
                     return { hasVenv: false, venvPath: null };
