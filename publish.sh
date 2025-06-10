@@ -159,6 +159,257 @@ validate_pypi_token() {
     return 0
 }
 
+# Python package build and test functions
+build_python_package() {
+    echo ""
+    echo "🔨 Building Python package..."
+    
+    # Clean previous builds
+    if [[ -d "dist" ]]; then
+        echo "Cleaning previous build artifacts..."
+        rm -rf dist/
+    fi
+    
+    # Build package
+    echo "Building package with uv..."
+    if [[ $dry_run == true ]]; then
+        echo "[DRY RUN] Would run: uv build"
+    else
+        if ! uv build; then
+            echo "❌ Error: Failed to build Python package"
+            return 1
+        fi
+    fi
+    
+    # Verify build artifacts
+    if [[ $dry_run != true ]]; then
+        if [[ ! -d "dist" ]] || [[ -z "$(ls -A dist/)" ]]; then
+            echo "❌ Error: No build artifacts found in dist/"
+            return 1
+        fi
+        
+        echo "✓ Build artifacts created:"
+        ls -la dist/
+        
+        # Basic package validation
+        local wheel_file=$(find dist/ -name "*.whl" | head -1)
+        local tar_file=$(find dist/ -name "*.tar.gz" | head -1)
+        
+        if [[ -n "$wheel_file" ]]; then
+            echo "✓ Wheel package: $(basename "$wheel_file")"
+        fi
+        
+        if [[ -n "$tar_file" ]]; then
+            echo "✓ Source package: $(basename "$tar_file")"
+        fi
+    fi
+    
+    return 0
+}
+
+test_python_package() {
+    echo ""
+    echo "🧪 Testing Python package..."
+    
+    if [[ $dry_run == true ]]; then
+        echo "[DRY RUN] Would run basic import tests"
+        return 0
+    fi
+    
+    # Test basic import
+    echo "Testing package import..."
+    if ! python -c "import sys; sys.path.insert(0, 'src'); import stackoverflow_mcp; print('✓ Package import successful')"; then
+        echo "❌ Error: Failed to import package"
+        return 1
+    fi
+    
+    # Test CLI entry point
+    echo "Testing CLI entry point..."
+    if ! python -m stackoverflow_mcp --help >/dev/null 2>&1; then
+        echo "⚠️  Warning: CLI entry point test failed (this might be expected in some environments)"
+    else
+        echo "✓ CLI entry point working"
+    fi
+    
+    return 0
+}
+
+# PyPI package status check functions
+check_pypi_package_status() {
+    echo ""
+    echo "🔍 Checking PyPI package status..."
+    
+    # Get package name and version from pyproject.toml
+    local package_name=$(grep '^name = ' pyproject.toml | sed 's/name = "\(.*\)"/\1/')
+    local package_version=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+    
+    if [[ -z "$package_name" ]] || [[ -z "$package_version" ]]; then
+        echo "❌ Error: Could not extract package name or version from pyproject.toml"
+        return 1
+    fi
+    
+    echo "Package: $package_name"
+    echo "Version: $package_version"
+    
+    # Determine PyPI URL based on test mode
+    local pypi_url
+    if [[ $use_test_pypi == true ]]; then
+        pypi_url="https://test.pypi.org/pypi"
+        echo "Target: Test PyPI"
+    else
+        pypi_url="https://pypi.org/pypi"
+        echo "Target: Production PyPI"
+    fi
+    
+    # Check if package exists
+    echo "Checking package existence..."
+    local package_info
+    if package_info=$(curl -s "$pypi_url/$package_name/json" 2>/dev/null); then
+        if echo "$package_info" | grep -q '"message": "Not Found"'; then
+            echo "✓ Package does not exist yet - ready for first release"
+            return 0
+        else
+            echo "✓ Package exists on PyPI"
+            
+            # Check if this version already exists
+            if echo "$package_info" | grep -q "\"$package_version\""; then
+                echo "❌ Error: Version $package_version already exists on PyPI"
+                echo ""
+                echo "Available options:"
+                echo "1. Bump version in pyproject.toml"
+                echo "2. Use --test-pypi for testing"
+                echo "3. Delete the version (if it's on Test PyPI)"
+                echo ""
+                return 1
+            else
+                echo "✓ Version $package_version is available"
+                
+                # Show latest version
+                local latest_version=$(echo "$package_info" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print(data['info']['version'])
+" 2>/dev/null || echo "unknown")
+                echo "Latest version on PyPI: $latest_version"
+            fi
+        fi
+    else
+        echo "⚠️  Warning: Could not check package status (network issue?)"
+        echo "Proceeding with caution..."
+    fi
+    
+    return 0
+}
+
+# Secure PyPI publishing function
+secure_publish_python() {
+    echo ""
+    echo "📦 Publishing Python package to PyPI..."
+    
+    # Set up environment for uv publish
+    local publish_env=""
+    
+    # Determine which token to use
+    if [[ $use_test_pypi == true ]]; then
+        if [[ -n "$TEST_PYPI_API_TOKEN" ]]; then
+            publish_env="UV_PUBLISH_TOKEN=$TEST_PYPI_API_TOKEN"
+            echo "Using Test PyPI with environment token"
+        else
+            echo "Using Test PyPI with .pypirc configuration"
+        fi
+    else
+        if [[ -n "$PYPI_API_TOKEN" ]]; then
+            publish_env="UV_PUBLISH_TOKEN=$PYPI_API_TOKEN"
+            echo "Using production PyPI with environment token"
+        else
+            echo "Using production PyPI with .pypirc configuration"
+        fi
+    fi
+    
+    # Prepare publish command
+    local publish_cmd="uv publish"
+    
+    if [[ $use_test_pypi == true ]]; then
+        publish_cmd="$publish_cmd --publish-url https://test.pypi.org/legacy/"
+    fi
+    
+    # Execute publish
+    if [[ $dry_run == true ]]; then
+        echo "[DRY RUN] Would run: $publish_env $publish_cmd"
+        echo "[DRY RUN] Publishing to: $(if [[ $use_test_pypi == true ]]; then echo 'Test PyPI'; else echo 'Production PyPI'; fi)"
+    else
+        echo "Publishing package..."
+        if [[ -n "$publish_env" ]]; then
+            if ! env $publish_env $publish_cmd; then
+                echo "❌ Error: Failed to publish Python package"
+                return 1
+            fi
+        else
+            if ! $publish_cmd; then
+                echo "❌ Error: Failed to publish Python package"
+                return 1
+            fi
+        fi
+        
+        echo "✓ Python package published successfully!"
+    fi
+    
+    return 0
+}
+
+# PyPI publication verification function
+verify_pypi_publication() {
+    echo ""
+    echo "🔍 Verifying PyPI publication..."
+    
+    # Get package name and version from pyproject.toml
+    local package_name=$(grep '^name = ' pyproject.toml | sed 's/name = "\(.*\)"/\1/')
+    local package_version=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+    
+    # Determine PyPI URL based on test mode
+    local pypi_url
+    local pypi_name
+    if [[ $use_test_pypi == true ]]; then
+        pypi_url="https://test.pypi.org/pypi"
+        pypi_name="Test PyPI"
+    else
+        pypi_url="https://pypi.org/pypi"
+        pypi_name="PyPI"
+    fi
+    
+    echo "Checking $package_name@$package_version on $pypi_name..."
+    
+    # Wait a moment for PyPI to update
+    sleep 3
+    
+    # Verify package exists
+    local package_info
+    if package_info=$(curl -s "$pypi_url/$package_name/json" 2>/dev/null); then
+        if echo "$package_info" | grep -q "\"$package_version\""; then
+            echo "✅ Package verified on $pypi_name"
+            
+            # Show package details
+            local package_url
+            if [[ $use_test_pypi == true ]]; then
+                package_url="https://test.pypi.org/project/$package_name/"
+            else
+                package_url="https://pypi.org/project/$package_name/"
+            fi
+            
+            echo "🌐 View at: $package_url"
+            echo "📦 Install with: pip install $(if [[ $use_test_pypi == true ]]; then echo '--index-url https://test.pypi.org/simple/ '; fi)$package_name"
+            
+            return 0
+        else
+            echo "⚠️  Warning: Package exists but version $package_version not found"
+            return 1
+        fi
+    else
+        echo "⚠️  Warning: Could not verify package on $pypi_name (may take time to propagate)"
+        return 1
+    fi
+}
+
 # Task 7: 脚本结构优化 - 命令行参数解析
 show_help() {
     echo "📦 StackOverflow MCP Server - 统一发布脚本"
@@ -474,10 +725,53 @@ echo "✓ Main file verified: $main_file"
 
 echo "✓ Package quality checks completed"
 
+# Python package processing (if needed)
+if [[ $npm_only != true ]]; then
+    # Check PyPI package status
+    if ! check_pypi_package_status; then
+        exit 1
+    fi
+    
+    # Build Python package
+    if ! build_python_package; then
+        exit 1
+    fi
+    
+    # Test Python package
+    if [[ $skip_tests != true ]]; then
+        if ! test_python_package; then
+            exit 1
+        fi
+    fi
+    
+    # Publish Python package (before NPM to ensure dependency availability)
+    if ! secure_publish_python; then
+        exit 1
+    fi
+    
+    # Verify Python package publication
+    if [[ $dry_run != true ]]; then
+        verify_pypi_publication
+    fi
+fi
+
+# NPM package processing (if needed)
+if [[ $python_only == true ]]; then
+    echo ""
+    echo "🎉 Python package publishing complete!"
+    echo ""
+    echo "📋 Next steps:"
+    echo "1. Test the published package: pip install stackoverflow-mcp-fastmcp"
+    echo "2. Update NPM package to reference the new Python version"
+    echo "3. Create GitHub Release"
+    echo ""
+    exit 0
+fi
+
 # 询问版本类型
 echo ""
 initial_version=$(npm version --json | jq -r '.["@notalk/stackoverflow-mcp"]')
-echo "📊 Current version: $initial_version"
+echo "📊 Current NPM version: $initial_version"
 # Task 5: 增强版本管理
 echo "Select version bump type:"
 echo "1) patch (bug fixes)     - e.g., 0.1.0 → 0.1.1"
@@ -695,11 +989,44 @@ rm -rf $temp_dir
 echo ""
 echo "🎉 Publishing complete!"
 echo ""
+
+# Show published packages summary
+echo "📦 Published packages:"
+if [[ $npm_only != true ]]; then
+    local package_name=$(grep '^name = ' pyproject.toml | sed 's/name = "\(.*\)"/\1/')
+    local package_version=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+    echo "   🐍 Python: $package_name@$package_version"
+    if [[ $use_test_pypi == true ]]; then
+        echo "      📍 Test PyPI: https://test.pypi.org/project/$package_name/"
+    else
+        echo "      📍 PyPI: https://pypi.org/project/$package_name/"
+    fi
+fi
+if [[ $python_only != true ]]; then
+    echo "   📦 NPM: @notalk/stackoverflow-mcp@$new_version"
+    echo "      📍 NPM: https://www.npmjs.com/package/@notalk/stackoverflow-mcp"
+fi
+
+echo ""
 echo "📋 Next steps:"
-echo "1. Update documentation to use 'npx stackoverflow-mcp'"
+echo "1. Update documentation to use 'npx @notalk/stackoverflow-mcp'"
 echo "2. Create GitHub Release: https://github.com/NoTalkTech/stackoverflow-mcp/releases/new"
 echo "3. Update Cursor MCP configurations to use the published package"
+if [[ $npm_only != true ]]; then
+    echo "4. Test Python package installation and functionality"
+fi
+
 echo ""
 echo "✨ Users can now install with:"
-echo "   npx @notalk/stackoverflow-mcp"
-echo "   npm install -g @notalk/stackoverflow-mcp" 
+if [[ $python_only != true ]]; then
+    echo "   npx @notalk/stackoverflow-mcp"
+    echo "   npm install -g @notalk/stackoverflow-mcp"
+fi
+if [[ $npm_only != true ]]; then
+    local package_name=$(grep '^name = ' pyproject.toml | sed 's/name = "\(.*\)"/\1/')
+    if [[ $use_test_pypi == true ]]; then
+        echo "   pip install --index-url https://test.pypi.org/simple/ $package_name"
+    else
+        echo "   pip install $package_name"
+    fi
+fi 
