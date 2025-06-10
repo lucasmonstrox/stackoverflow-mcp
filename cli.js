@@ -17,9 +17,12 @@ class StackOverflowMCPCLI {
     constructor() {
         this.pythonCommands = ['python3', 'python'];
         this.packageName = 'stackoverflow-fastmcp';
+        this.expectedVersion = '0.2.0';  // Expected complete version
         this.verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
         // Detect MCP mode - should be silent for stdio communication
         this.isMCPMode = this.detectMCPMode();
+        // Check for force reinstall flag
+        this.forceReinstall = process.argv.includes('--force-reinstall');
     }
 
     detectMCPMode() {
@@ -120,6 +123,34 @@ class StackOverflowMCPCLI {
         }
     }
 
+    async checkPackageVersion(pythonCmd) {
+        try {
+            const result = await this.runCommand(pythonCmd, ['-c', 
+                `import ${this.packageName.replace('-', '_')}; print(${this.packageName.replace('-', '_')}.__version__)`
+            ], { stdio: 'pipe' });
+            
+            if (result.code === 0) {
+                const installedVersion = result.stdout.trim();
+                this.log(`Installed version: ${installedVersion}, Expected: ${this.expectedVersion}`);
+                return {
+                    installed: true,
+                    version: installedVersion,
+                    isLatest: installedVersion === this.expectedVersion,
+                    needsUpdate: installedVersion !== this.expectedVersion
+                };
+            }
+        } catch (error) {
+            this.log(`Version check failed: ${error.message}`);
+        }
+        
+        return {
+            installed: false,
+            version: null,
+            isLatest: false,
+            needsUpdate: true
+        };
+    }
+
     async checkUvAvailable() {
         try {
             const result = await this.runCommand('uv', ['--version'], { stdio: 'pipe' });
@@ -168,7 +199,8 @@ class StackOverflowMCPCLI {
         if (uvAvailable) {
             try {
                 this.log('Using uv for package installation...');
-                const result = await this.runCommand('uv', ['pip', 'install', this.packageName]);
+                const packageSpec = `${this.packageName}==${this.expectedVersion}`;
+                const result = await this.runCommand('uv', ['pip', 'install', packageSpec]);
                 if (result.code === 0) {
                     this.info(`✅ Successfully installed ${this.packageName} (via uv)`);
                     return true;
@@ -181,7 +213,8 @@ class StackOverflowMCPCLI {
         // Try pip install
         let pipResult;
         try {
-            pipResult = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', this.packageName], { stdio: 'pipe' });
+            const packageSpec = `${this.packageName}==${this.expectedVersion}`;
+            pipResult = await this.runCommand(pythonCmd, ['-m', 'pip', 'install', packageSpec], { stdio: 'pipe' });
             if (pipResult.code === 0) {
                 this.info(`✅ Successfully installed ${this.packageName}`);
                 return true;
@@ -333,11 +366,31 @@ class StackOverflowMCPCLI {
                 // Continue with current directory
             }
 
-            // 3. Check if package is installed
+            // 3. Check package installation and version
             const isInstalled = await this.checkPackageInstalled(pythonCmd);
+            let needsInstall = !isInstalled;
+            let versionInfo = null;
             
-            if (!isInstalled) {
-                this.info(`📦 ${this.packageName} not found, installing...`);
+            if (isInstalled) {
+                versionInfo = await this.checkPackageVersion(pythonCmd);
+                
+                if (versionInfo.needsUpdate) {
+                    this.info(`📦 ${this.packageName} found but outdated version (${versionInfo.version} → ${this.expectedVersion})`);
+                    this.info('🔄 Updating to latest version with complete tool set...');
+                    needsInstall = true;
+                } else if (this.forceReinstall) {
+                    this.info(`🔄 Force reinstall requested for ${this.packageName}`);
+                    needsInstall = true;
+                } else {
+                    this.log(`Python package already installed (${versionInfo.version})`);
+                }
+            }
+            
+            if (needsInstall) {
+                if (!isInstalled) {
+                    this.info(`📦 ${this.packageName} not found, installing latest version (${this.expectedVersion})...`);
+                }
+                
                 const installSuccess = await this.installPackage(pythonCmd);
                 
                 if (!installSuccess) {
@@ -353,10 +406,19 @@ class StackOverflowMCPCLI {
                     this.error('Alternative solutions:');
                     this.error(`  uv pip install ${this.packageName}  (if uv is installed)`);
                     this.error(`  pip install --user ${this.packageName}  (may not work in managed environments)`);
+                    this.error('');
+                    this.error('For force reinstall, add --force-reinstall flag');
                     process.exit(1);
                 }
-            } else {
-                this.log('Python package already installed');
+                
+                // Verify installation after install/update
+                const newVersionInfo = await this.checkPackageVersion(pythonCmd);
+                if (newVersionInfo.installed) {
+                    this.info(`✅ Successfully installed ${this.packageName} v${newVersionInfo.version}`);
+                    if (newVersionInfo.version === this.expectedVersion) {
+                        this.info('🎉 You now have the complete tool set with 7 tools!');
+                    }
+                }
             }
 
             // 4. Filter and prepare CLI arguments
