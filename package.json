@@ -1,6 +1,6 @@
 {
   "name": "@notalk-tech/stackoverflow-mcp",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "StackOverflow MCP server for querying programming Q&A using FastMCP - npx wrapper for Python package",
   "main": "cli.js",
   "bin": {
