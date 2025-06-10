@@ -171,29 +171,60 @@ class StackOverflowMCPCLI {
             return { hasVenv: false, venvPath: null };
         }
 
-        // Check if we're already in a virtual environment
+        // Check if we're already in a virtual environment by testing uv pip list
         const venvCheck = await this.runCommand('uv', ['pip', 'list'], { stdio: 'pipe' });
         if (venvCheck.code === 0) {
             this.log('Already in a uv virtual environment');
             return { hasVenv: true, venvPath: process.env.VIRTUAL_ENV || 'current' };
         }
 
-        // Create a global virtual environment for stackoverflow-mcp in user's home
+        // No virtual environment detected, try to create one
         const homeDir = os.homedir();
         const venvPath = path.join(homeDir, '.stackoverflow-mcp-venv');
         
-        this.log(`Creating virtual environment at ${venvPath}...`);
+        // Check if virtual environment already exists
+        if (existsSync(venvPath)) {
+            this.log(`Found existing virtual environment at ${venvPath}`);
+            // Test if we can use it
+            const testVenv = await this.runCommand('uv', ['--python-preference', 'only-managed', 'pip', 'list'], { 
+                stdio: 'pipe',
+                env: { ...process.env, UV_PROJECT_ENVIRONMENT: venvPath }
+            });
+            if (testVenv.code === 0) {
+                this.info(`✅ Using existing virtual environment at ${venvPath}`);
+                return { hasVenv: true, venvPath };
+            }
+        }
+        
+        this.info(`🔧 Creating virtual environment at ${venvPath}...`);
         
         try {
-            // Create virtual environment
-            const createResult = await this.runCommand('uv', ['venv', venvPath], { stdio: 'pipe' });
+            // Create virtual environment with Python 3.12+
+            const createResult = await this.runCommand('uv', ['venv', venvPath, '--python', '3.12'], { stdio: 'pipe' });
             if (createResult.code !== 0) {
                 this.log(`Failed to create virtual environment: ${createResult.stderr}`);
-                return { hasVenv: false, venvPath: null };
+                // Try without specific Python version
+                const createFallback = await this.runCommand('uv', ['venv', venvPath], { stdio: 'pipe' });
+                if (createFallback.code !== 0) {
+                    this.log(`Fallback creation also failed: ${createFallback.stderr}`);
+                    return { hasVenv: false, venvPath: null };
+                }
             }
             
             this.info(`✅ Created virtual environment at ${venvPath}`);
-            return { hasVenv: true, venvPath };
+            
+            // Verify the virtual environment works
+            const verifyResult = await this.runCommand('uv', ['--python-preference', 'only-managed', 'pip', 'list'], {
+                stdio: 'pipe',
+                env: { ...process.env, UV_PROJECT_ENVIRONMENT: venvPath }
+            });
+            
+            if (verifyResult.code === 0) {
+                return { hasVenv: true, venvPath };
+            } else {
+                this.log(`Virtual environment verification failed: ${verifyResult.stderr}`);
+                return { hasVenv: false, venvPath: null };
+            }
             
         } catch (error) {
             this.log(`Virtual environment creation failed: ${error.message}`);
@@ -219,10 +250,17 @@ class StackOverflowMCPCLI {
                 if (uvAvailable) {
                     // Try uv development install first
                     const uvArgs = ['pip', 'install', '-e', '.'];
-                    if (!uvEnvInfo.hasVenv) {
+                    const uvOptions = {};
+                    
+                    if (uvEnvInfo.hasVenv && uvEnvInfo.venvPath !== 'current') {
+                        // Use specific virtual environment
+                        uvOptions.env = { ...process.env, UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath };
+                        uvArgs.unshift('--python-preference', 'only-managed');
+                    } else if (!uvEnvInfo.hasVenv) {
                         uvArgs.push('--system');  // Use system if no venv available
                     }
-                    const uvResult = await this.runCommand('uv', uvArgs);
+                    
+                    const uvResult = await this.runCommand('uv', uvArgs, uvOptions);
                     if (uvResult.code === 0) {
                         this.info(`✅ Successfully installed ${this.packageName} (development mode via uv)`);
                         return true;
@@ -247,13 +285,19 @@ class StackOverflowMCPCLI {
                 this.log('Using uv for package installation...');
                 const packageSpec = `${this.packageName}==${this.expectedVersion}`;
                 const uvArgs = ['pip', 'install', packageSpec];
+                const uvOptions = {};
                 
-                if (!uvEnvInfo.hasVenv) {
+                if (uvEnvInfo.hasVenv && uvEnvInfo.venvPath !== 'current') {
+                    // Use specific virtual environment
+                    uvOptions.env = { ...process.env, UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath };
+                    uvArgs.unshift('--python-preference', 'only-managed');
+                    this.log(`Using virtual environment at ${uvEnvInfo.venvPath}`);
+                } else if (!uvEnvInfo.hasVenv) {
                     this.log('No virtual environment available, using --system flag');
                     uvArgs.push('--system');
                 }
                 
-                const result = await this.runCommand('uv', uvArgs);
+                const result = await this.runCommand('uv', uvArgs, uvOptions);
                 if (result.code === 0) {
                     this.info(`✅ Successfully installed ${this.packageName} (via uv)`);
                     return true;
@@ -290,12 +334,16 @@ class StackOverflowMCPCLI {
                 try {
                     const packageSpec = `${this.packageName}==${this.expectedVersion}`;
                     const uvArgs = ['pip', 'install', packageSpec];
+                    const uvOptions = {};
                     
-                    if (!uvEnvInfo.hasVenv) {
+                    if (uvEnvInfo.hasVenv && uvEnvInfo.venvPath !== 'current') {
+                        uvOptions.env = { ...process.env, UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath };
+                        uvArgs.unshift('--python-preference', 'only-managed');
+                    } else if (!uvEnvInfo.hasVenv) {
                         uvArgs.push('--system');
                     }
                     
-                    const result = await this.runCommand('uv', uvArgs);
+                    const result = await this.runCommand('uv', uvArgs, uvOptions);
                     if (result.code === 0) {
                         this.info(`✅ Successfully installed ${this.packageName} (via uv)`);
                         return true;
