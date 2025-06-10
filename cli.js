@@ -178,12 +178,9 @@ class StackOverflowMCPCLI {
         this.info(`🔧 Creating virtual environment at ${venvPath}...`);
         
         try {
-            // Create virtual environment with completely isolated settings
+            // Create virtual environment with isolated settings
             const createEnv = {
-                HOME: process.env.HOME,
-                PATH: process.env.PATH,
-                USER: process.env.USER || 'user',
-                LANG: process.env.LANG || 'en_US.UTF-8',
+                ...process.env,
                 // Strong isolation flags
                 UV_NO_PROJECT: '1',
                 UV_CACHE_DIR: path.join(venvPath, '.uv-cache'),
@@ -248,12 +245,9 @@ class StackOverflowMCPCLI {
             const packageSpec = `${this.packageName}==${this.expectedVersion}`;
             const uvArgs = ['--python-preference', 'only-managed', 'pip', 'install', packageSpec];
             
-            // Create completely isolated environment
+            // Create isolated environment
             const cleanEnv = {
-                HOME: process.env.HOME,
-                PATH: process.env.PATH,
-                USER: process.env.USER || 'user',
-                LANG: process.env.LANG || 'en_US.UTF-8',
+                ...process.env,
                 // Set virtual environment
                 UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath,
                 // Strong isolation flags
