@@ -171,11 +171,16 @@ class StackOverflowMCPCLI {
             return { hasVenv: false, venvPath: null };
         }
 
-        // Check if we're already in a virtual environment by testing uv pip list
-        const venvCheck = await this.runCommand('uv', ['pip', 'list'], { stdio: 'pipe' });
-        if (venvCheck.code === 0) {
-            this.log('Already in a uv virtual environment');
-            return { hasVenv: true, venvPath: process.env.VIRTUAL_ENV || 'current' };
+        // Check if we're in an explicit virtual environment (via environment variables)
+        if (process.env.VIRTUAL_ENV || process.env.UV_PROJECT_ENVIRONMENT) {
+            this.log(`Already in a virtual environment: ${process.env.VIRTUAL_ENV || process.env.UV_PROJECT_ENVIRONMENT}`);
+            return { hasVenv: true, venvPath: process.env.VIRTUAL_ENV || process.env.UV_PROJECT_ENVIRONMENT };
+        }
+
+        // Check if we're in a development environment (uv may auto-detect project venv)
+        if (existsSync('pyproject.toml') || existsSync('setup.py') || existsSync('.venv')) {
+            this.log('In development environment, uv will handle virtual environment automatically');
+            return { hasVenv: true, venvPath: 'project' };
         }
 
         // No virtual environment detected, try to create one
@@ -252,7 +257,7 @@ class StackOverflowMCPCLI {
                     const uvArgs = ['pip', 'install', '-e', '.'];
                     const uvOptions = {};
                     
-                    if (uvEnvInfo.hasVenv && uvEnvInfo.venvPath !== 'current') {
+                    if (uvEnvInfo.hasVenv && uvEnvInfo.venvPath !== 'current' && uvEnvInfo.venvPath !== 'project') {
                         // Use specific virtual environment
                         uvOptions.env = { ...process.env, UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath };
                         uvArgs.unshift('--python-preference', 'only-managed');
@@ -287,7 +292,7 @@ class StackOverflowMCPCLI {
                 const uvArgs = ['pip', 'install', packageSpec];
                 const uvOptions = {};
                 
-                if (uvEnvInfo.hasVenv && uvEnvInfo.venvPath !== 'current') {
+                if (uvEnvInfo.hasVenv && uvEnvInfo.venvPath !== 'current' && uvEnvInfo.venvPath !== 'project') {
                     // Use specific virtual environment
                     uvOptions.env = { ...process.env, UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath };
                     uvArgs.unshift('--python-preference', 'only-managed');
@@ -336,7 +341,7 @@ class StackOverflowMCPCLI {
                     const uvArgs = ['pip', 'install', packageSpec];
                     const uvOptions = {};
                     
-                    if (uvEnvInfo.hasVenv && uvEnvInfo.venvPath !== 'current') {
+                    if (uvEnvInfo.hasVenv && uvEnvInfo.venvPath !== 'current' && uvEnvInfo.venvPath !== 'project') {
                         uvOptions.env = { ...process.env, UV_PROJECT_ENVIRONMENT: uvEnvInfo.venvPath };
                         uvArgs.unshift('--python-preference', 'only-managed');
                     } else if (!uvEnvInfo.hasVenv) {
