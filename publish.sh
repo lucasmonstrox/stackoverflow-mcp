@@ -1,5 +1,6 @@
 #!/bin/bash
-# StackOverflow MCP Server - NPM发布脚本
+# StackOverflow MCP Server - 统一发布脚本
+# 同时发布 NPM 包和 Python 包
 
 set -e
 
@@ -47,7 +48,7 @@ trap cleanup_and_rollback ERR INT TERM
 
 # Task 7: 脚本结构优化 - 命令行参数解析
 show_help() {
-    echo "📦 StackOverflow MCP Server - NPM Publishing Script"
+    echo "📦 StackOverflow MCP Server - 统一发布脚本"
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
@@ -55,7 +56,14 @@ show_help() {
     echo "  --skip-audit     Skip security audit"
     echo "  --force          Skip confirmations (use with caution)"
     echo "  --dry-run        Show what would be done without actually publishing"
+    echo "  --npm-only       Only publish NPM package"
+    echo "  --python-only    Only publish Python package"
+    echo "  --test-pypi      Use Test PyPI for Python package"
     echo "  --help, -h       Show this help message"
+    echo ""
+    echo "Environment variables:"
+    echo "  PYPI_API_TOKEN       - Token for production PyPI"
+    echo "  TEST_PYPI_API_TOKEN  - Token for Test PyPI (optional)"
     echo ""
     exit 0
 }
@@ -65,6 +73,9 @@ skip_tests=false
 skip_audit=false
 force_publish=false
 dry_run=false
+npm_only=false
+python_only=false
+use_test_pypi=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -84,6 +95,18 @@ while [[ $# -gt 0 ]]; do
             dry_run=true
             shift
             ;;
+        --npm-only)
+            npm_only=true
+            shift
+            ;;
+        --python-only)
+            python_only=true
+            shift
+            ;;
+        --test-pypi)
+            use_test_pypi=true
+            shift
+            ;;
         --help|-h)
             show_help
             ;;
@@ -95,7 +118,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo "📦 StackOverflow MCP Server - NPM Publishing Script"
+echo "📦 StackOverflow MCP Server - 统一发布脚本"
 echo "=================================================="
 if [[ $dry_run == true ]]; then
     echo "🔍 DRY RUN MODE - No actual changes will be made"
