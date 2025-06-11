@@ -50,11 +50,6 @@ To add StackOverflow MCP as a Model Context Protocol server in Cursor, add the f
 }
 ```
 
-You can customize this configuration by:
-- Adding environment variables in the `env` object
-- Setting `auto_start` to `false` if you prefer to start the server manually
-- Specifying additional command-line arguments if needed
-
 ## 📋 Prerequisites
 
 - **Node.js** 14.0.0 or higher
