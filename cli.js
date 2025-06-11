@@ -16,7 +16,7 @@ const os = require('os');
 class StackOverflowMCPCLI {
     constructor() {
         this.packageName = 'stackoverflow-fastmcp';
-        this.expectedVersion = '0.2.4';  // Keep current published version until 0.2.3 is released
+        this.expectedVersion = '0.2.5';  // Keep current published version
         this.verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
         // Always MCP mode - no output to avoid JSON pollution
         this.isMCPMode = true;
