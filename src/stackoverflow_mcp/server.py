@@ -260,7 +260,7 @@ async def server_status() -> Resource:
     try:
         status_data = {
             "server": "StackOverflow MCP Server",
-            "version": "0.2.3",
+            "version": "0.2.4",
             "config": {
                 "transport": "stdio",
                 "log_level": server.config.log_level,
