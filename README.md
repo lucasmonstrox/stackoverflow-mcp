@@ -11,13 +11,13 @@ A Model Context Protocol (MCP) server that provides seamless access to StackOver
 
 ```bash
 # Run directly with npx (no installation required)
-npx @notalk/stackoverflow-mcp
+npx @notalk-tech/stackoverflow-mcp
 
 # Skip installation prompts (useful for automation)
-npx -y @notalk/stackoverflow-mcp
+npx -y @notalk-tech/stackoverflow-mcp
 
 # Or install globally
-npm install -g @notalk/stackoverflow-mcp
+npm install -g @notalk-tech/stackoverflow-mcp
 stackoverflow-mcp
 ```
 
@@ -31,6 +31,30 @@ python -m stackoverflow_mcp
 uv run python -m stackoverflow_mcp
 ```
 
+### Integrating with Cursor
+
+To add StackOverflow MCP as a Model Context Protocol server in Cursor, add the following configuration to your Cursor settings:
+
+```json
+{
+  "mcp_servers": {
+    "stackoverflow": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@notalk-tech/stackoverflow-mcp",
+        "--api-key", "your_stackoverflow_api_key",
+      ]
+    }
+  }
+}
+```
+
+You can customize this configuration by:
+- Adding environment variables in the `env` object
+- Setting `auto_start` to `false` if you prefer to start the server manually
+- Specifying additional command-line arguments if needed
+
 ## 📋 Prerequisites
 
 - **Node.js** 14.0.0 or higher
@@ -39,19 +63,19 @@ uv run python -m stackoverflow_mcp
 
 The NPX wrapper will automatically:
 - Detect your Python installation
-- Install the required Python package (`stackoverflow-mcp`)
+- Install the required Python package (`stackoverflow-fastmcp`)
 - Handle environment setup and configuration
 
 ## Installation
 
 ### Option 1: NPX (No Installation)
 ```bash
-npx @notalk/stackoverflow-mcp --help
+npx @notalk-tech/stackoverflow-mcp --help
 ```
 
 ### Option 2: Global NPM Installation
 ```bash
-npm install -g @notalk/stackoverflow-mcp
+npm install -g @notalk-tech/stackoverflow-mcp
 stackoverflow-mcp --help
 ```
 
@@ -73,7 +97,18 @@ node cli.js --help
 - **🚀 Auto-deployment**: NPX-compatible with automatic Python environment setup
 - **📁 Smart Configuration**: Auto-discovery of config files and working directories
 - **🔧 Development Mode**: Enhanced logging and debugging features
-- **⚡ FastMCP Implementation**: Simplified, elegant server using FastMCP framework (only implementation)
+- **⚡ FastMCP Implementation**: Simplified, elegant server using FastMCP framework
+
+## About MCP Mode
+
+This server is specifically designed to operate in **Model Context Protocol (MCP) mode**, which means:
+
+- Communication occurs through standard input/output (stdio) rather than HTTP
+- The server integrates seamlessly with AI assistants supporting the MCP standard
+- No traditional server ports or network connections are used
+- The server provides a consistent, structured interface for querying StackOverflow
+
+MCP mode makes this tool ideal for integration with AI models, allowing them to search and retrieve programming knowledge programmatically.
 
 ## Usage
 
@@ -81,19 +116,16 @@ node cli.js --help
 
 ```bash
 # Start the MCP server with default settings
-npx @notalk/stackoverflow-mcp
+npx @notalk-tech/stackoverflow-mcp
 
 # Auto-confirm installation (useful for scripts/CI)
-npx -y @notalk/stackoverflow-mcp
+npx -y @notalk-tech/stackoverflow-mcp
 
-# Start on a specific port
-npx @notalk/stackoverflow-mcp --port 8080
+# Provide an API key directly
+npx @notalk-tech/stackoverflow-mcp --api-key your_stackoverflow_api_key
 
-# Development mode with debug logging
-npx @notalk/stackoverflow-mcp --dev --log-level DEBUG
-
-# Use custom configuration file
-npx @notalk/stackoverflow-mcp --config-file ./my-config.json
+# Specify a working directory
+npx @notalk-tech/stackoverflow-mcp --working-dir /path/to/your/project
 ```
 
 ### Python Development with uv
@@ -107,8 +139,8 @@ uv sync
 # Run the server with uv
 uv run python -m stackoverflow_mcp
 
-# Development mode with uv
-uv run python -m stackoverflow_mcp --log-level DEBUG
+# Run with API key
+uv run python -m stackoverflow_mcp --api-key your_stackoverflow_api_key
 ```
 
 **FastMCP Benefits:**
@@ -124,10 +156,8 @@ Create a `.stackoverflow-mcp.json` file in your project directory:
 
 ```json
 {
-  "host": "localhost",
-  "port": 3000,
-  "log_level": "INFO",
-  "stackoverflow_api_key": "your_api_key_here"
+  "stackoverflow_api_key": "your_api_key_here",
+  "log_level": "CRITICAL"
 }
 ```
 
@@ -135,16 +165,8 @@ Create a `.stackoverflow-mcp.json` file in your project directory:
 
 ```
 Options:
-  --host TEXT                     Host to bind the server to
-  --port INTEGER                  Port to bind the server to (auto-detect if not specified)
-  --log-level [DEBUG|INFO|WARNING|ERROR]
-                                  Logging level
-  --config-file PATH              Path to configuration file (auto-discover if not specified)
   --working-dir DIRECTORY         Working directory (auto-detect if not specified)
-  --auto-port / --no-auto-port    Automatically find an available port if specified port is in use
-  --dev / --prod                  Run in development mode (more verbose logging, auto-reload)
-  --health-check / --no-health-check
-                                  Enable startup health checks
+  --api-key TEXT                  StackOverflow API key
   --version                       Show the version and exit.
   --help                          Show this message and exit.
 ```
@@ -158,27 +180,17 @@ The server automatically discovers configuration files in the following order:
 3. `config/stackoverflow-mcp.json`
 4. `.config/stackoverflow-mcp.json`
 
-### Example Configuration
-
-```json
-{
-  "host": "localhost",
-  "port": 3000,
-  "log_level": "INFO",
-  "stackoverflow_api_key": "your_optional_api_key",
-  "max_requests_per_minute": 30,
-  "enable_caching": true
-}
-```
-
 ## 🌐 API Endpoints
 
 Once running, the MCP server provides the following tools:
 
 - `search_questions`: Search StackOverflow questions by keywords
-- `get_question_details`: Get detailed information about a specific question
 - `search_by_tags`: Find questions filtered by programming language tags
-- `get_user_info`: Get information about StackOverflow users
+- `get_question`: Get detailed information about a specific question
+- `get_question_with_answers`: Get comprehensive question details including answers
+- `get_rate_limit_status`: Get current rate limiting status and quotas
+- `get_authentication_status`: Get current API authentication status
+- `get_queue_status`: Get current request queue status and statistics
 
 ## 🧪 Testing
 
@@ -212,7 +224,7 @@ npm install
 pip install -e .
 
 # Run in development mode
-npm start -- --dev
+npm start
 ```
 
 ### Project Structure
@@ -240,9 +252,33 @@ This package follows [Semantic Versioning](https://semver.org/):
 - **MINOR**: New features (backward compatible)
 - **PATCH**: Bug fixes (backward compatible)
 
+### Current Versions
+
+- **Python Package**: `stackoverflow-fastmcp` v0.2.6
+- **NPM Package**: `@notalk-tech/stackoverflow-mcp` v1.2.5
+
+### Version Synchronization
+
+When publishing new versions, it's important to keep version numbers synchronized:
+
+1. **Python Package Version**: Defined in `src/stackoverflow_mcp/__init__.py` and `pyproject.toml`
+2. **NPM Package Version**: Defined in `package.json`
+3. **CLI Version Reference**: Defined in `cli.js` (expectedVersion variable)
+
+All three should be updated together when making a release to ensure consistency.
+
 ### Release Process
 
+This project provides a unified publishing script to simultaneously release both NPM and Python packages.
+
 ```bash
+# Option 1: Using the publish script (recommended)
+./publish.sh             # Publish both NPM and Python packages
+./publish.sh --npm-only  # Publish only the NPM package
+./publish.sh --pypi-only # Publish only the Python package
+./publish.sh --dry-run   # Test the publishing process without actual uploads
+
+# Option 2: Manual process
 # Update version
 npm version patch|minor|major
 
@@ -252,6 +288,12 @@ npm publish
 # Create GitHub release
 git push --tags
 ```
+
+#### Prerequisites for Publishing
+
+- PyPI API token (environment variable `PYPI_API_TOKEN` or configured in `~/.pypirc`)
+- NPM authentication (`npm login` or using automation tokens)
+- Git credentials for pushing tags
 
 ## 🤝 Contributing
 

@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Any
 from fastmcp import FastMCP
 from fastmcp.resources import Resource
 
+from . import __version__
 from .config import ServerConfig
 from .logging import get_logger
 from .stackoverflow_client import StackOverflowClient, RequestPriority
@@ -260,7 +261,7 @@ async def server_status() -> Resource:
     try:
         status_data = {
             "server": "StackOverflow MCP Server",
-            "version": "0.2.4",
+            "version": __version__,
             "config": {
                 "transport": "stdio",
                 "log_level": server.config.log_level,
