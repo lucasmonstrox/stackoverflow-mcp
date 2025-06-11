@@ -2,6 +2,7 @@
 StackOverflow MCP Server using FastMcp framework.
 """
 
+import threading
 import asyncio
 import json
 from typing import Dict, List, Optional, Any
@@ -259,7 +260,7 @@ async def server_status() -> Resource:
     try:
         status_data = {
             "server": "StackOverflow MCP Server",
-            "version": "0.2.2",
+            "version": "0.2.3",
             "config": {
                 "transport": "stdio",
                 "log_level": server.config.log_level,
@@ -333,8 +334,6 @@ async def run_server(config: ServerConfig):
         except RuntimeError as e:
             if "already running" in str(e).lower():
                 # Alternative: create a new event loop in a thread
-                import threading
-                import asyncio
                 
                 def run_in_thread():
                     new_loop = asyncio.new_event_loop()
