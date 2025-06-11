@@ -261,8 +261,7 @@ async def server_status() -> Resource:
             "server": "StackOverflow MCP Server",
             "version": "0.2.2",
             "config": {
-                "host": server.config.host,
-                "port": server.config.port,
+                "transport": "stdio",
                 "log_level": server.config.log_level,
                 "api_key_configured": bool(server.config.stackoverflow_api_key)
             },
@@ -301,16 +300,38 @@ async def run_server(config: ServerConfig):
     global server
     server = StackOverflowServer(config)
     
+    # CRITICAL: Disable FastMCP's internal logging before starting the server
+    # This prevents FastMCP from outputting to stdout during startup
+    import logging
+    
+    # Silence all FastMCP related loggers
+    fastmcp_loggers = [
+        "fastmcp",
+        "FastMCP",
+        "fastmcp.server", 
+        "fastmcp.server.server",
+        "FastMCP.fastmcp.server.server",
+        "fastmcp.fastmcp.server.server",
+        "mcp",
+        "uvicorn",
+        "uvicorn.access",
+        "uvicorn.error"
+    ]
+    
+    for logger_name in fastmcp_loggers:
+        logger = logging.getLogger(logger_name)
+        logger.setLevel(logging.CRITICAL + 1)  # Above CRITICAL
+        logger.propagate = False
+        # Remove any existing handlers
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
+    
     try:
-        logger.info("Starting StackOverflow MCP Server with FastMcp")
-        logger.info(f"Host: {config.host}, Port: {config.port}")
-        
         # Start FastMcp server with proper asyncio handling
         try:
             await mcp.run(transport="stdio")
         except RuntimeError as e:
             if "already running" in str(e).lower():
-                logger.warning("AsyncIO loop already running, using alternative startup method")
                 # Alternative: create a new event loop in a thread
                 import threading
                 import asyncio
@@ -331,18 +352,19 @@ async def run_server(config: ServerConfig):
                     while thread.is_alive():
                         await asyncio.sleep(1)
                 except KeyboardInterrupt:
-                    logger.info("Received interrupt signal")
+                    pass
             else:
                 raise
         
     except KeyboardInterrupt:
-        logger.info("Server interrupted by user")
+        pass
     except Exception as e:
-        logger.error(f"Server error: {e}")
+        # Only log errors to stderr in extreme cases
+        import sys
+        print(f"Critical server error: {e}", file=sys.stderr)
         raise
     finally:
         await server.cleanup()
-        logger.info("Server shutdown complete")
 
 
 def create_app(config: ServerConfig):

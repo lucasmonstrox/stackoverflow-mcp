@@ -16,44 +16,25 @@ const os = require('os');
 class StackOverflowMCPCLI {
     constructor() {
         this.packageName = 'stackoverflow-fastmcp';
-        this.expectedVersion = '0.2.2';  // Expected complete version
+        this.expectedVersion = '0.2.2';  // Keep current published version until 0.2.3 is released
         this.verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
-        // Detect MCP mode - should be silent for stdio communication
-        this.isMCPMode = this.detectMCPMode();
-        // Check for force reinstall flag
-        this.forceReinstall = process.argv.includes('--force-reinstall');
+        // Always MCP mode - no output to avoid JSON pollution
+        this.isMCPMode = true;
+        this.forceReinstall = process.env.FORCE_REINSTALL === 'true';
         // Virtual environment path
         this.venvPath = path.join(os.homedir(), '.stackoverflow-mcp-venv');
     }
 
-    detectMCPMode() {
-        // MCP stdio mode detection: only suppress output for true stdio mode
-        const args = process.argv.slice(2);
-        const hasPort = args.includes('--port');
-        const hasHelp = args.includes('--help') || args.includes('-h');
-        
-        // Only suppress output for stdio mode (no --port, no --help)
-        const isStdioMode = !hasPort && !hasHelp;
-        
-        return isStdioMode;
-    }
-
     log(message) {
-        if (this.verbose && !this.isMCPMode) {
-            console.log(`[stackoverflow-fastmcp] ${message}`);
-        }
+        // Completely silent in MCP mode
     }
 
     error(message) {
-        if (!this.isMCPMode) {
-            console.error(`[stackoverflow-fastmcp] ERROR: ${message}`);
-        }
+        // Completely silent in MCP mode
     }
 
     info(message) {
-        if (!this.isMCPMode) {
-            console.log(message);
-        }
+        // Completely silent in MCP mode
     }
 
     async runCommand(command, args = [], options = {}) {
@@ -132,7 +113,7 @@ class StackOverflowMCPCLI {
             }
         }
         
-        this.info(`🔧 Creating virtual environment at ${this.venvPath}...`);
+        this.info(`Creating virtual environment at ${this.venvPath}...`);
         
         try {
             // Create virtual environment with uv
@@ -158,7 +139,7 @@ class StackOverflowMCPCLI {
                 return false;
             }
             
-            this.info(`✅ Created virtual environment at ${this.venvPath}`);
+            this.info(`Created virtual environment at ${this.venvPath}`);
             return true;
             
         } catch (error) {
@@ -217,10 +198,7 @@ class StackOverflowMCPCLI {
     }
 
     async installPackage() {
-        this.log(`Installing ${this.packageName} Python package in virtual environment...`);
-        
         try {
-            this.log('Installing package with uv in virtual environment...');
             const packageSpec = `${this.packageName}==${this.expectedVersion}`;
             
             // Method 1: Try using uv pip install with --python
@@ -231,14 +209,10 @@ class StackOverflowMCPCLI {
             ], { stdio: 'pipe' });
             
             if (result1.code === 0) {
-                this.info(`✅ Successfully installed ${this.packageName} in virtual environment`);
                 return true;
             }
             
-            this.log(`Method 1 failed: ${result1.stderr}`);
-            
             // Method 2: Try using environment variables
-            this.log('Trying alternative installation method...');
             const installEnv = {
                 ...process.env,
                 VIRTUAL_ENV: this.venvPath,
@@ -253,16 +227,12 @@ class StackOverflowMCPCLI {
             });
             
             if (result2.code === 0) {
-                this.info(`✅ Successfully installed ${this.packageName} in virtual environment`);
                 return true;
             }
             
-            this.log(`Method 2 failed: ${result2.stderr}`);
-            this.error('Failed to install package with uv');
             return false;
             
         } catch (error) {
-            this.error(`Package installation failed: ${error.message}`);
             return false;
         }
     }
@@ -302,77 +272,39 @@ class StackOverflowMCPCLI {
     }
 
     filterCliArgs(args) {
-        // Filter out Node.js specific arguments and pass through relevant ones
+        // Filter out Node.js specific arguments for MCP stdio mode
         const filteredArgs = args.filter(arg => {
             return !arg.startsWith('--inspect') && 
                    !arg.startsWith('--debug') &&
+                   !arg.startsWith('--port') &&  // MCP doesn't use port
+                   !arg.startsWith('--host') &&  // MCP doesn't use host
                    arg !== '--verbose' &&  // Handle this in Node.js wrapper
                    arg !== '-v';
         });
-
-        // Add verbose flag for Python if enabled
-        if (this.verbose && !filteredArgs.includes('--log-level')) {
-            filteredArgs.push('--log-level', 'DEBUG');
-        }
 
         return filteredArgs;
     }
 
     async main() {
         try {
-            this.info('🔧 StackOverflow MCP Server (npx wrapper)');
-            this.info('');
-
-            // Check if in test mode
-            if (process.env.TEST_MODE === '1') {
-                console.log('🧪 Test mode - skipping Python package installation');
-                console.log('');
-                console.log('Usage: python -m stackoverflow_mcp [OPTIONS]');
-                console.log('');
-                console.log('  StackOverflow MCP Server using FastMcp framework.');
-                console.log('');
-                console.log('  A simplified, elegant implementation providing StackOverflow search');
-                console.log('  capabilities through the Model Context Protocol.');
-                console.log('');
-                console.log('Options:');
-                console.log('  --host TEXT                     Host to bind the server to');
-                console.log('  --port INTEGER                  Port to bind the server to');
-                console.log('  --log-level [DEBUG|INFO|WARNING|ERROR]');
-                console.log('                                  Logging level');
-                console.log('  --config-file FILE              Path to configuration file (auto-discover if');
-                console.log('                                  not specified)');
-                console.log('  --working-dir DIRECTORY         Working directory (auto-detect if not');
-                console.log('                                  specified)');
-                console.log('  --api-key TEXT                  StackOverflow API key');
-                console.log('  --version                       Show the version and exit.');
-                console.log('  --help                          Show this message and exit.');
-                return;
-            }
-
             // 1. Check uv availability
             const uvAvailable = await this.checkUvAvailable();
             if (!uvAvailable) {
-                this.error('uv is required but not available');
-                this.info('📥 Please install uv: curl -LsSf https://astral.sh/uv/install.sh | sh');
                 process.exit(1);
             }
 
             // 2. Ensure virtual environment exists
             const venvCreated = await this.ensureUvVirtualEnv();
             if (!venvCreated) {
-                this.error('Failed to create or access virtual environment');
                 process.exit(1);
             }
 
             // 3. Detect working directory
             const workingDir = await this.detectWorkingDirectory();
-            this.log(`Detected working directory: ${workingDir}`);
             
             try {
                 process.chdir(workingDir);
-                this.log(`Changed to working directory: ${process.cwd()}`);
             } catch (error) {
-                this.error(`Failed to change to working directory ${workingDir}: ${error.message}`);
                 // Continue with current directory
             }
 
@@ -385,43 +317,17 @@ class StackOverflowMCPCLI {
                 versionInfo = await this.checkPackageVersion();
                 
                 if (versionInfo.needsUpdate) {
-                    this.info(`📦 ${this.packageName} found but outdated version (${versionInfo.version} → ${this.expectedVersion})`);
-                    this.info('🔄 Updating to latest version with complete tool set...');
                     needsInstall = true;
                 } else if (this.forceReinstall) {
-                    this.info(`🔄 Force reinstall requested for ${this.packageName}`);
                     needsInstall = true;
-                } else {
-                    this.log(`Python package already installed (${versionInfo.version})`);
                 }
             }
             
             if (needsInstall) {
-                if (!isInstalled) {
-                    this.info(`📦 ${this.packageName} not found, installing latest version (${this.expectedVersion})...`);
-                }
-                
                 const installSuccess = await this.installPackage();
                 
                 if (!installSuccess) {
-                    this.error('Failed to install the Python package');
-                    this.error('');
-                    this.error('Troubleshooting steps:');
-                    this.error('  1. Ensure uv is properly installed and in PATH');
-                    this.error('  2. Check network connectivity');
-                    this.error('  3. Try running with --verbose for more details');
-                    this.error('');
-                    this.error('For force reinstall, add --force-reinstall flag');
                     process.exit(1);
-                }
-                
-                // Verify installation after install/update
-                const newVersionInfo = await this.checkPackageVersion();
-                if (newVersionInfo.installed) {
-                    this.info(`✅ Successfully installed ${this.packageName} v${newVersionInfo.version}`);
-                    if (newVersionInfo.version === this.expectedVersion) {
-                        this.info('🎉 You now have the complete tool set with 7 tools!');
-                    }
                 }
             }
 
@@ -435,28 +341,14 @@ class StackOverflowMCPCLI {
             }
 
             // 6. Run the Python CLI using virtual environment Python
-            this.info('🚀 Starting StackOverflow MCP Server in virtual environment...');
-            this.info('');
-
-            // The Python module name is stackoverflow_mcp (not stackoverflow_fastmcp)
             const moduleName = 'stackoverflow_mcp';
             const pythonPath = this.getVirtualEnvPython();
             
-            // In MCP mode, use stdio: 'inherit' for direct communication
-            // In non-MCP mode, allow normal output
-            const runOptions = this.isMCPMode ? { stdio: 'inherit' } : {};
-            const result = await this.runCommand(pythonPath, ['-m', moduleName, ...filteredArgs], runOptions);
+            // MCP mode uses stdio: 'inherit' for direct communication
+            const result = await this.runCommand(pythonPath, ['-m', moduleName, ...filteredArgs], { stdio: 'inherit' });
             process.exit(result.code);
 
         } catch (error) {
-            this.error(error.message);
-            this.info('');
-            this.info('💡 Troubleshooting:');
-            this.info('  1. Ensure uv is installed and in PATH');
-            this.info('  2. Check network connectivity for package installation');
-            this.info('  3. Try running with --verbose for more details');
-            this.info('');
-            this.info('For more help, visit: https://github.com/NoTalkTech/stackoverflow-mcp');
             process.exit(1);
         }
     }

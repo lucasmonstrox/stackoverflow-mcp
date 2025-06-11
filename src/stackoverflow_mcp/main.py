@@ -9,7 +9,7 @@ from typing import Optional
 import click
 
 from .config import ServerConfig
-from .logging import setup_logging, get_logger
+from .logging import setup_logging, get_logger, disable_all_logging_for_mcp_mode
 from .server import run_server, create_app
 
 logger = get_logger("fastmcp_main")
@@ -83,20 +83,9 @@ def detect_working_directory() -> Path:
 
 @click.command()
 @click.option(
-    "--host", 
-    default="localhost", 
-    help="Host to bind the server to"
-)
-@click.option(
-    "--port", 
-    default=3000, 
-    type=int, 
-    help="Port to bind the server to"
-)
-@click.option(
     "--log-level", 
-    default="INFO", 
-    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
+    default="WARNING",  # Changed from INFO to WARNING to reduce noise
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
     help="Logging level"
 )
 @click.option(
@@ -113,10 +102,8 @@ def detect_working_directory() -> Path:
     "--api-key",
     help="StackOverflow API key"
 )
-@click.version_option(version="0.1.0", prog_name="stackoverflow-mcp-fastmcp")
+@click.version_option(version="0.2.2", prog_name="stackoverflow-mcp-fastmcp")
 def main(
-    host: str, 
-    port: int, 
     log_level: str, 
     config_file: Optional[str],
     working_dir: Optional[str],
@@ -126,8 +113,20 @@ def main(
     StackOverflow MCP Server using FastMcp framework.
     
     A simplified, elegant implementation providing StackOverflow search capabilities
-    through the Model Context Protocol.
+    through the Model Context Protocol (stdio mode only).
     """
+    
+    # Detect if we're running in MCP mode (which is always the case now)
+    # For MCP protocol, completely disable logging to avoid stdout pollution
+    is_mcp_mode = True
+    
+    if is_mcp_mode:
+        # Nuclear option: completely disable all logging for MCP mode
+        disable_all_logging_for_mcp_mode()
+    else:
+        # Setup minimal logging for MCP mode
+        actual_log_level = "ERROR" if log_level in ["DEBUG", "INFO", "WARNING"] else log_level
+        setup_logging(actual_log_level)
     
     # Determine working directory
     if working_dir:
@@ -140,9 +139,7 @@ def main(
     original_cwd = Path.cwd()
     try:
         os.chdir(work_dir)
-        logger.debug(f"Changed working directory to: {work_dir}")
-    except Exception as e:
-        logger.warning(f"Failed to change to working directory {work_dir}: {e}")
+    except Exception:
         work_dir = original_cwd
     
     # Discover config file if not specified
@@ -157,41 +154,22 @@ def main(
     try:
         config = ServerConfig.from_file(config_path) if config_path else ServerConfig()
         
-        # Override with CLI arguments
-        if host != "localhost":
-            config.host = host
-        if port != 3000:
-            config.port = port
-        if log_level != "INFO":
-            config.log_level = log_level
+        # Override with CLI arguments - force ERROR level for MCP mode
+        config.log_level = "CRITICAL" if is_mcp_mode else log_level
         if api_key:
             config.stackoverflow_api_key = api_key
             
     except Exception as e:
-        click.echo(f"Error loading configuration: {e}", err=True)
+        if not is_mcp_mode:
+            click.echo(f"Error loading configuration: {e}", err=True)
         sys.exit(1)
     
-    # Setup logging
-    setup_logging(config.log_level)
-    
     try:
-        logger.info("=" * 60)
-        logger.info("StackOverflow MCP Server (FastMcp)")
-        logger.info("=" * 60)
-        logger.info(f"Working Directory: {work_dir}")
-        logger.info(f"Configuration File: {config_path or 'None (using defaults)'}")
-        logger.info(f"Host: {config.host}")
-        logger.info(f"Port: {config.port}")
-        logger.info(f"Log Level: {config.log_level}")
-        logger.info(f"API Key Configured: {'Yes' if config.stackoverflow_api_key else 'No'}")
-        logger.info("=" * 60)
-        
         # Run the server with proper asyncio handling
         try:
             asyncio.run(run_server(config))
         except RuntimeError as e:
             if "already running" in str(e).lower():
-                logger.warning("AsyncIO loop already running, creating new event loop")
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
@@ -202,10 +180,12 @@ def main(
                 raise
         
     except KeyboardInterrupt:
-        logger.info("Server interrupted by user")
         sys.exit(0)
     except Exception as e:
-        logger.error(f"Server failed to start: {e}")
+        if not is_mcp_mode:
+            # Only show errors in non-MCP mode
+            logger = get_logger("fastmcp_main")
+            logger.error(f"Server failed to start: {e}")
         sys.exit(1)
 
 
