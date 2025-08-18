@@ -1229,7 +1229,8 @@ class StackOverflowClient:
             "pagesize": page_size,
             "sort": sort,
             "order": order,
-            "filter": "default"  # Include basic question data
+            "filter": "default",
+            "site": "stackoverflow"  # Include basic question data
         }
         
         logger.info(f"Searching questions with query: '{query}', page: {page}, size: {page_size}")
