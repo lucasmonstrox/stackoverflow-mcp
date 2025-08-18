@@ -45,7 +45,7 @@ server = StackOverflowServer(ServerConfig())
 
 @mcp.tool()
 async def search_questions(
-    query: str,
+    q: str,
     limit: int = 10,
     page: int = 1,
     sort: str = "relevance"
@@ -54,7 +54,7 @@ async def search_questions(
     Search StackOverflow questions by keywords.
     
     Args:
-        query: Search query keywords
+        q: Search q keywords
         limit: Maximum number of results (1-50)
         page: Page number for pagination (minimum 1)
         sort: Sort order (relevance, activity, votes, creation)
@@ -63,14 +63,14 @@ async def search_questions(
     
     try:
         result = await server.client.search_questions(
-            query=query,
+            q=q,
             page=page,
             page_size=min(max(1, limit), 50),
             sort=sort,
             priority=RequestPriority.NORMAL
         )
         
-        logger.info(f"Search completed: {query} -> {result.get('total', 0)} results")
+        logger.info(f"Search completed: {q} -> {result.get('total', 0)} results")
         return result
         
     except Exception as e:
