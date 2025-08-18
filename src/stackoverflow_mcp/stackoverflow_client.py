@@ -1224,7 +1224,7 @@ class StackOverflowClient:
         
         # Use search/advanced endpoint with intitle parameter for keyword search
         params = {
-            "intitle": query.strip(),  # Search in question titles
+            "q": query.strip(),  # Search in question titles
             "page": page,
             "pagesize": page_size,
             "sort": sort,
