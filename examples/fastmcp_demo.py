@@ -97,7 +97,7 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> Any:
     print("""
 @mcp.tool()
 async def search_questions(
-    query: str,
+    q: str,
     limit: int = 10,
     page: int = 1,
     sort: str = "relevance"
@@ -107,7 +107,7 @@ async def search_questions(
     
     try:
         result = await server.client.search_questions(
-            query=query, page=page, page_size=min(max(1, limit), 50),
+            q=q, page=page, page_size=min(max(1, limit), 50),
             sort=sort, priority=RequestPriority.NORMAL
         )
         return result

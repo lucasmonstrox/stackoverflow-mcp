@@ -1186,7 +1186,7 @@ class StackOverflowClient:
     
     async def search_questions(
         self,
-        query: str,
+        q: str,
         page: int = 1,
         page_size: int = 10,
         sort: str = "relevance",
@@ -1197,7 +1197,7 @@ class StackOverflowClient:
         Search for questions using the StackOverflow API.
         
         Args:
-            query: Search query string
+            q: Search query string
             page: Page number (1-based)
             page_size: Number of results per page (max 100)
             sort: Sort order (relevance, activity, votes, creation)
@@ -1207,7 +1207,7 @@ class StackOverflowClient:
         Returns:
             Dictionary containing search results
         """
-        if not query or not query.strip():
+        if not q or not q.strip():
             raise ValueError("Search query cannot be empty")
         
         # Validate parameters
@@ -1224,7 +1224,7 @@ class StackOverflowClient:
         
         # Use search/advanced endpoint with intitle parameter for keyword search
         params = {
-            "q": query.strip(),  # Search in question titles
+            "q": q.strip(),  # Search in question titles
             "page": page,
             "pagesize": page_size,
             "sort": sort,
@@ -1233,7 +1233,7 @@ class StackOverflowClient:
             "site": "stackoverflow"  # Include basic question data
         }
         
-        logger.info(f"Searching questions with query: '{query}', page: {page}, size: {page_size}")
+        logger.info(f"Searching questions with query: '{q}', page: {page}, size: {page_size}")
         
         try:
             result = await self._queue_request("search/advanced", params, priority)

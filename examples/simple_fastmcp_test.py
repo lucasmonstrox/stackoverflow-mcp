@@ -74,10 +74,10 @@ async def test_tool_schemas():
             
             # Verify required parameters
             required = schema.get('required', [])
-            if 'query' in required:
-                print(f"   ✅ Required parameter 'query' found")
+            if 'q' in required:
+                print(f"   ✅ Required parameter 'q' found")
             else:
-                print(f"   ❌ Required parameter 'query' missing")
+                print(f"   ❌ Required parameter 'q' missing")
         else:
             print(f"   ❌ No input schema found")
     else:
