@@ -1197,7 +1197,7 @@ class StackOverflowClient:
         Search for questions using the StackOverflow API.
         
         Args:
-            q: Search query string
+            q: Search q string
             page: Page number (1-based)
             page_size: Number of results per page (max 100)
             sort: Sort order (relevance, activity, votes, creation)
@@ -1208,7 +1208,7 @@ class StackOverflowClient:
             Dictionary containing search results
         """
         if not q or not q.strip():
-            raise ValueError("Search query cannot be empty")
+            raise ValueError("Search q cannot be empty")
         
         # Validate parameters
         page = max(1, page)
@@ -1233,7 +1233,7 @@ class StackOverflowClient:
             "site": "stackoverflow"  # Include basic question data
         }
         
-        logger.info(f"Searching questions with query: '{q}', page: {page}, size: {page_size}")
+        logger.info(f"Searching questions with q: '{q}', page: {page}, size: {page_size}")
         
         try:
             result = await self._queue_request("search/advanced", params, priority)
