@@ -4,7 +4,7 @@
   "description": "StackOverflow MCP server for querying programming Q&A using FastMCP - npx wrapper for Python package",
   "main": "cli.js",
   "bin": {
-    "stackoverflow-mcp": "./cli.js"
+    "stackoverflow-mcp": "cli.js"
   },
   "files": [
     "cli.js",
