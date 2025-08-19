@@ -1010,7 +1010,7 @@ fi
 echo ""
 echo "📋 Next steps:"
 echo "1. Update documentation to use 'npx @luqezman/stackoverflow-mcp'"
-echo "2. Create GitHub Release: https://github.com/NoTalkTech/stackoverflow-mcp/releases/new"
+echo "2. Create GitHub Release: https://github.com/lucasmonstrox/stackoverflow-mcp/releases/new"
 echo "3. Update Cursor MCP configurations to use the published package"
 if [[ $npm_only != true ]]; then
     echo "4. Test Python package installation and functionality"

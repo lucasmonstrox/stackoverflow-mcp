@@ -24,7 +24,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NoTalkTech/stackoverflow-mcp.git"
+    "url": "git+https://github.com/lucasmonstrox/stackoverflow-mcp.git"
   },
   "keywords": [
     "stackoverflow",
@@ -44,15 +44,15 @@
     "context"
   ],
   "author": {
-    "name": "biyu.huang",
-    "email": "h417652303@gmail.com",
-    "url": "https://github.com/NoTalkTech"
+    "name": "Lucas Monstrox",
+    "email": "joao.galiano.silva@gmail.com",
+    "url": "https://github.com/lucasmonstrox"
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/NoTalkTech/stackoverflow-mcp/issues"
+    "url": "https://github.com/lucasmonstrox/stackoverflow-mcp/issues"
   },
-  "homepage": "https://github.com/NoTalkTech/stackoverflow-mcp#readme",
+  "homepage": "https://github.com/lucasmonstrox/stackoverflow-mcp#readme",
   "engines": {
     "node": ">=14.0.0",
     "npm": ">=6.0.0"
@@ -72,6 +72,6 @@
   },
   "funding": {
     "type": "github",
-    "url": "https://github.com/sponsors/NoTalkTech"
+    "url": "https://github.com/sponsors/lucasmonstrox"
   }
 }

@@ -1,6 +1,6 @@
 # StackOverflow MCP Server
 
-[![npm version](https://badge.fury.io/js/@notalk-tech%2Fstackoverflow-mcp.svg)](https://badge.fury.io/js/@notalk-tech%2Fstackoverflow-mcp)
+[![npm version](https://badge.fury.io/js/@luqezman%2Fstackoverflow-mcp.svg)](https://badge.fury.io/js/@luqezman%2Fstackoverflow-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Model Context Protocol (MCP) server that provides seamless access to StackOverflow's programming Q&A database using the FastMCP framework. This package serves as an NPX-compatible wrapper for the Python-based StackOverflow MCP server.
@@ -76,7 +76,7 @@ stackoverflow-mcp --help
 
 ### Option 3: Local Development
 ```bash
-git clone https://github.com/NoTalkTech/stackoverflow-mcp.git
+git clone https://github.com/lucasmonstrox/stackoverflow-mcp.git
 cd stackoverflow-mcp
 npm install
 node cli.js --help
@@ -209,7 +209,7 @@ python -m pytest tests/ -v
 
 ```bash
 # Clone the repository
-git clone https://github.com/NoTalkTech/stackoverflow-mcp.git
+git clone https://github.com/lucasmonstrox/stackoverflow-mcp.git
 cd stackoverflow-mcp
 
 # Install Node.js dependencies
@@ -304,9 +304,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-- **Issues**: [GitHub Issues](https://github.com/NoTalkTech/stackoverflow-mcp/issues)
-- **Documentation**: [GitHub Wiki](https://github.com/NoTalkTech/stackoverflow-mcp/wiki)
-- **Discussions**: [GitHub Discussions](https://github.com/NoTalkTech/stackoverflow-mcp/discussions)
+- **Issues**: [GitHub Issues](https://github.com/lucasmonstrox/stackoverflow-mcp/issues)
+- **Documentation**: [GitHub Wiki](https://github.com/lucasmonstrox/stackoverflow-mcp/wiki)
+- **Discussions**: [GitHub Discussions](https://github.com/lucasmonstrox/stackoverflow-mcp/discussions)
 
 ## 🙏 Acknowledgments
 
