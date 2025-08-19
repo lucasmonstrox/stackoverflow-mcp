@@ -11,13 +11,13 @@ A Model Context Protocol (MCP) server that provides seamless access to StackOver
 
 ```bash
 # Run directly with npx (no installation required)
-npx @notalk-tech/stackoverflow-mcp
+npx @luqezman/stackoverflow-mcp
 
 # Skip installation prompts (useful for automation)
-npx -y @notalk-tech/stackoverflow-mcp
+npx -y @luqezman/stackoverflow-mcp
 
 # Or install globally
-npm install -g @notalk-tech/stackoverflow-mcp
+npm install -g @luqezman/stackoverflow-mcp
 stackoverflow-mcp
 ```
 
@@ -42,7 +42,7 @@ To add StackOverflow MCP as a Model Context Protocol server in Cursor, add the f
       "command": "npx",
       "args": [
         "-y",
-        "@notalk-tech/stackoverflow-mcp",
+        "@luqezman/stackoverflow-mcp",
         "--api-key", "your_stackoverflow_api_key",
       ]
     }
@@ -65,12 +65,12 @@ The NPX wrapper will automatically:
 
 ### Option 1: NPX (No Installation)
 ```bash
-npx @notalk-tech/stackoverflow-mcp --help
+npx @luqezman/stackoverflow-mcp --help
 ```
 
 ### Option 2: Global NPM Installation
 ```bash
-npm install -g @notalk-tech/stackoverflow-mcp
+npm install -g @luqezman/stackoverflow-mcp
 stackoverflow-mcp --help
 ```
 
@@ -111,16 +111,16 @@ MCP mode makes this tool ideal for integration with AI models, allowing them to 
 
 ```bash
 # Start the MCP server with default settings
-npx @notalk-tech/stackoverflow-mcp
+npx @luqezman/stackoverflow-mcp
 
 # Auto-confirm installation (useful for scripts/CI)
-npx -y @notalk-tech/stackoverflow-mcp
+npx -y @luqezman/stackoverflow-mcp
 
 # Provide an API key directly
-npx @notalk-tech/stackoverflow-mcp --api-key your_stackoverflow_api_key
+npx @luqezman/stackoverflow-mcp --api-key your_stackoverflow_api_key
 
 # Specify a working directory
-npx @notalk-tech/stackoverflow-mcp --working-dir /path/to/your/project
+npx @luqezman/stackoverflow-mcp --working-dir /path/to/your/project
 ```
 
 ### Python Development with uv
@@ -250,7 +250,7 @@ This package follows [Semantic Versioning](https://semver.org/):
 ### Current Versions
 
 - **Python Package**: `stackoverflow-fastmcp` v0.2.6
-- **NPM Package**: `@notalk-tech/stackoverflow-mcp` v1.2.5
+- **NPM Package**: `@luqezman/stackoverflow-mcp` v1.2.5
 
 ### Version Synchronization
 
